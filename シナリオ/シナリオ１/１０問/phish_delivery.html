@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>リンク先（体験）</title>
+
+  <link rel="stylesheet" href="../../../assets/app.css" />
+  <script src="../../../assets/logger.js"></script>
+  <script src="../common/scenario_core.js"></script>
+  <script src="./delivery_questions.js"></script>
+
+  <style>
+    /* =========================================
+       基本設定（sms_deliveryと同じ）
+       ========================================= */
+    * { box-sizing: border-box; }
+    body{
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      margin: 0;
+      background-color: #f0f0f0;
+    }
+
+    /* =========================================
+       スマホ外枠（deviceWrap, device, bezel, notch）
+       ※sms_deliveryと同じ
+       ========================================= */
+    .deviceWrap{
+      display:flex;
+      justify-content:center;
+      margin-top: 40px;
+    }
+    .device{
+      width:min(390px, 92vw);
+      aspect-ratio: 11 / 19.5;
+      border-radius: 42px;
+      padding: 8px;
+      background: linear-gradient(180deg, #2a2a2a, #313131);
+      border: 1px solid rgba(0,0,0,.85);
+      box-shadow:
+        0 18px 50px rgba(0,0,0,.45),
+        0 0 0 2px rgba(255,255,255,.06) inset;
+      position: relative;
+    }
+    .bezel{
+      height: 100%;
+      border-radius: 34px;
+      overflow:hidden;
+      border: 1px solid rgba(148,163,184,.25);
+      background: #ffffff;
+      position: relative;
+    }
+    .notch{
+      position:absolute;
+      top:5px; left:50%;
+      transform: translateX(-50%);
+      width: 150px; height: 28px;
+      border-radius: 0 0 16px 16px;
+      background: rgba(2,6,23,.85);
+      z-index: 100;
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      pointer-events:none;
+    }
+    .spk{ width:60px; height:6px; border-radius:999px; background: rgba(255,255,255,.16); }
+    .cam{ width:10px; height:10px; border-radius:999px; background: rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.12); }
+
+    /* =========================================
+       画面内（ブラウザ風）※スマホ内に収める
+       ========================================= */
+    .webScreen{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      background:#ffffff;
+      color:#000;
+      position: relative;
+    }
+
+    /* --- ステータスバー（smsと同じ） --- */
+    .statusbarReal{
+      height: 44px;
+      padding: 10px 24px 6px;
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      font-size: 14px;
+      font-weight: 600;
+      color: #000;
+      background:#fff;
+      z-index: 50;
+    }
+    .sbRight{ display:flex; gap:6px; align-items:center; }
+    .bat{
+      width:24px; height:11px; border-radius:3px;
+      border:1px solid #999;
+      position:relative;
+    }
+    .bat::after{
+      content:""; position:absolute; right:-4px; top:3px;
+      width:2px; height:4px; border-radius:1px; background: #999;
+    }
+    .bat i{
+      position:absolute; left:1px; top:1px; bottom:1px;
+      width:90%; border-radius:2px; background: #000; display:block;
+    }
+
+    /* --- Safari風ヘッダー（白＋薄い境界線） --- */
+    .safariHeader{
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      padding: 8px 10px 10px;
+      position: relative;
+      z-index: 40;
+    }
+    .safariTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 8px;
+      padding: 2px 2px 6px;
+    }
+    .navBtn{
+      color:#007AFF;
+      font-size: 18px;
+      font-weight: 600;
+      background: transparent;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+    .navBtn:active{ background: rgba(0,122,255,0.10); }
+    .safariIcons{
+      display:flex; gap: 4px; align-items:center;
+      color:#007AFF;
+    }
+    .iconBtn{
+      width: 32px; height: 32px;
+      border-radius: 10px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color:#007AFF;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .iconBtn:active{ background: rgba(0,122,255,0.10); }
+
+    .addressBar{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 14px;
+      background: #f2f2f7;
+      border: 1px solid rgba(0,0,0,0.06);
+      color:#111827;
+      font-size: 12.5px;
+      font-weight: 650;
+      overflow:hidden;
+      white-space:nowrap;
+      text-overflow:ellipsis;
+    }
+    .lock{
+      width: 14px; height: 14px;
+      border-radius: 3px;
+      border: 2px solid #10b981;
+      position: relative;
+      flex: 0 0 auto;
+    }
+    .lock::before{
+      content:"";
+      position:absolute; left: 2px; right: 2px; top: -6px;
+      height: 8px;
+      border: 2px solid #10b981;
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      background: transparent;
+    }
+    .domainText{
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    /* --- Web本文 --- */
+    .webView{
+      flex:1;
+      overflow-y:auto;
+      padding: 16px 14px 90px;
+      background: #ffffff;
+      -webkit-overflow-scrolling: touch;
+    }
+    .siteCard{
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.08);
+      background: #fff;
+    }
+    .siteBrand{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .siteLogo{
+      width: 34px; height: 34px;
+      border-radius: 10px;
+      background: #2563eb;
+      box-shadow: 0 6px 18px rgba(37,99,235,.25);
+      flex:0 0 auto;
+    }
+    .siteTitle{
+      font-weight: 900;
+      font-size: 16px;
+      color:#0f172a;
+      line-height: 1.2;
+    }
+    .siteSub{
+      font-size: 12px;
+      color:#64748b;
+      margin-top: 2px;
+    }
+
+    .notice{
+      margin: 10px 0 14px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color:#334155;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .field{ margin: 10px 0; }
+    .label{
+      display:block;
+      font-weight: 800;
+      font-size: 13px;
+      color:#0f172a;
+      margin-bottom: 6px;
+    }
+    .input{
+      width:100%;
+      padding: 12px 12px;
+      border-radius: 12px;
+      border: 1px solid #cbd5e1;
+      outline:none;
+      font-size: 15px;
+      background:#fff;
+    }
+    .input:focus{
+      border-color:#60a5fa;
+      box-shadow:0 0 0 3px rgba(96,165,250,.25);
+    }
+    .btn-submit{
+      width:100%;
+      margin-top: 12px;
+      padding: 12px 14px;
+      border: none;
+      border-radius: 14px;
+      font-weight: 900;
+      font-size: 16px;
+      background:#2563eb;
+      color:#fff;
+      cursor:pointer;
+      box-shadow:0 10px 24px rgba(37,99,235,.22);
+    }
+    .btn-submit:active{ transform: scale(0.99); }
+
+    /* --- ホームバー（smsと同じ） --- */
+    .homeIndicator{
+      position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+      width: 130px; height: 5px;
+      background: #000;
+      border-radius: 10px;
+      z-index: 100;
+    }
+
+    /* =========================================
+       入力してしまったポップ（スマホ内に表示）
+       ========================================= */
+    .phishOverlay{
+      position:absolute;
+      inset:0;
+      background: rgba(0,0,0,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: 16px;
+      z-index: 300;
+    }
+    .phishOverlay.show{ display:flex; }
+    .phishModal{
+      width:min(320px, 88vw);
+      background:#0f172a;
+      color:#fff;
+      border:1px solid #ef4444;
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.40);
+    }
+    .phishTitle{
+      font-weight: 900;
+      color:#ef4444;
+      margin: 0 0 8px 0;
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      font-size: 16px;
+    }
+    .phishBody{
+      font-size: 13px;
+      color:#e2e8f0;
+      line-height: 1.6;
+      margin: 0 0 12px 0;
+      padding-top: 10px;
+      border-top: 1px solid rgba(148,163,184,.25);
+    }
+    .phishBtn{
+      display:block;
+      text-align:center;
+      text-decoration:none;
+      background:#22c55e;
+      color:#052e16;
+      font-weight: 900;
+      border-radius: 14px;
+      padding: 12px 0;
+    }
+    .phishBtn:active{ transform: scale(0.99); }
+
+    @keyframes shake{
+      0%{ transform:translateX(0); }
+      20%{ transform:translateX(-5px) rotate(-1deg); }
+      40%{ transform:translateX(5px) rotate(1deg); }
+      60%{ transform:translateX(-5px) rotate(-1deg); }
+      80%{ transform:translateX(5px) rotate(1deg); }
+      100%{ transform:translateX(0); }
+    }
+    .shake{ animation: shake .4s ease-in-out; }
+
+    /* embedモード（プレビュー用） */
+    body.embed .topbar,
+    body.embed .kv,
+    body.embed .hr{ display:none !important; }
+    body.embed .deviceWrap{ margin-top: 0; }
+    body.embed .card{ padding: 0 !important; background: transparent; box-shadow:none; border:none; }
+    body.embed .container{ padding: 0 !important; }
+
+    /* --- 下部URLバー（スマホ下部へ移動） --- */
+.safariBottom{
+  position:absolute;
+  left:0; right:0;
+  bottom: 18px;                 /* homeIndicator(下6px)と被らないように少し上 */
+  padding: 8px 10px 12px;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(0,0,0,0.06);
+  z-index: 90;
+}
+
+/* 下部バーの分だけ本文の下余白を増やす */
+.webView{
+  padding: 16px 14px 150px;     /* 元は 90px */
+}
+
+/* 未入力エラー表示 */
+.formError{
+  display:none;
+  margin-top: 10px;
+  color:#b91c1c;
+  font-weight: 900;
+  font-size: 12px;
+}
+
+/* 未入力の入力欄を赤く */
+.input.error{
+  border-color:#ef4444;
+  box-shadow:0 0 0 3px rgba(239,68,68,.18);
+}
+
+/* 全部埋まるまでボタン無効 */
+.btn-submit:disabled{
+  opacity: .45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+
+    
+  </style>
+</head>
+
+<body>
+  <!-- smsと同じ上部バー -->
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <div class="btitle">スミッシング</div>
+          <div class="bmeta">リンク先を開いた（疑似）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card" style="padding-bottom: 55px;">
+      <div class="kv">
+        <span class="badge warn">現在の状況</span>
+        <span class="small"><h3>リンク先を開きました。画面の指示に従って操作してみてください。</h3></span>
+      </div>
+      <div class="hr"></div>
+
+      <div class="deviceWrap">
+        <div class="device">
+          <div class="notch"><span class="spk"></span><span class="cam"></span></div>
+
+          <div class="bezel">
+            <div class="webScreen" id="webScreen">
+
+              <div class="statusbarReal">
+                <div id="timeText">18:08</div>
+                <div class="sbRight">
+                  <span>4G</span>
+                  <span class="bat"><i></i></span>
+                  <span style="font-size:12px">95</span>
+                </div>
+              </div>
+
+              <div class="safariHeader">
+                <div class="safariTop">
+                  <button class="navBtn" id="backBtn" type="button">‹ 戻る</button>
+                  <div class="safariIcons" aria-hidden="true">
+                    <button class="iconBtn" type="button">⟳</button>
+                    <button class="iconBtn" type="button">⇪</button>
+                  </div>
+                </div>
+
+              </div>
+
+              <div class="webView">
+                <div class="siteCard">
+                  <div class="siteBrand">
+                    <div class="siteLogo" aria-hidden="true"></div>
+                    <div>
+                      <div class="siteTitle" id="phTitle">おおふく銀行 セキュリティ確認</div>
+                      <div class="siteSub">本人確認が必要です</div>
+                    </div>
+                    <div class="safariBottom">
+  <div class="addressBar" title="URL">
+    <span class="lock" aria-hidden="true"></span>
+    <span class="domainText">https://<span id="phDomain">oohukubk-security.jp</span>/verify</span>
+  </div>
+</div>
+
+                  </div>
+
+                  <div class="notice" id="phNotice">
+                    セキュリティ上の理由により、本人確認が必要です。<br>
+                    ※研究用の疑似画面です（実際の入力は不要）
+                  </div>
+
+                  <div class="field">
+                    <label class="label">ユーザーID</label>
+                    <input class="input" id="uid" placeholder="例) a1234567" />
+                  </div>
+
+                  <div class="field">
+                    <label class="label">ログインパスワード</label>
+                    <input class="input" id="pw" type="password" placeholder="例）4758" />
+                  </div>
+
+                  <div class="field">
+                    <label class="label">電話番号</label>
+                    <input class="input" id="tel" placeholder="例) 09012345678" />
+                  </div>
+
+                  <div id="formError" class="formError" aria-live="polite"></div>
+
+<button class="btn-submit" id="submitBtn">本人確認を続ける</button>
+                </div>
+              </div>
+
+              <div class="homeIndicator"></div>
+
+              <!-- 入力してしまったポップ（スマホ内） -->
+              <div class="phishOverlay" id="overlay" role="dialog" aria-modal="true" aria-hidden="true">
+                <div class="phishModal" id="modal">
+                  <div class="phishTitle">⚠️ 個人情報が流出してしまいました！</div>
+                  <p class="phishBody">
+                    入力した情報は、攻撃者に盗まれる可能性があります。
+                  </p>
+                  <a class="phishBtn" id="revealBtn" href="./reveal_delivery.html?q=10">解説を見る</a>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        // ===== q / embed =====
+        const params = new URLSearchParams(location.search);
+        const q = Number(params.get("q") || "10");
+        const embed = params.get("embed") === "1";
+        if (embed) document.body.classList.add("embed");
+
+        const t0 = performance.now();
+
+        // ===== Delivery10 がある場合：表示内容を q に合わせて差し替え =====
+        let data = null;
+        try {
+          if (window.Delivery10 && typeof Delivery10.getQ === "function") {
+            data = Delivery10.getQ(q);
+          }
+        } catch(e){}
+
+        if (data && data.phish) {
+          const title = data.phish.title || "セキュリティ確認";
+          const dom = data.phish.domain || "example.invalid";
+          const btn = data.phish.button || "続ける";
+          const notice = data.phish.notice || "";
+
+          const tEl = document.getElementById("phTitle");
+          const dEl = document.getElementById("phDomain");
+          const bEl = document.getElementById("submitBtn");
+          const rEl = document.getElementById("revealBtn");
+          const nEl = document.getElementById("phNotice");
+
+          if (tEl) tEl.textContent = title;
+          if (dEl) dEl.textContent = dom;
+          if (bEl) bEl.textContent = btn;
+          if (rEl) rEl.href = `./reveal_delivery.html?q=${q}`;
+          if (nEl && notice) nEl.innerHTML = notice;
+        } else {
+          const rEl = document.getElementById("revealBtn");
+          if (rEl) rEl.href = `./reveal_delivery.html?q=${q}`;
+        }
+
+        // ===== ログ（embedでは記録しない）=====
+        try {
+          if (!embed && window.SecLogger) {
+            const current = localStorage.getItem("sec_learn_scenario_id");
+            const sid = (window.Delivery10 && Delivery10.SCENARIO_ID) ? Delivery10.SCENARIO_ID : "delivery10";
+            if (current !== sid && typeof SecLogger.startScenario === "function") {
+              SecLogger.startScenario(sid);
+            }
+            SecLogger.log("page_view", "phish_delivery", { q, title: document.title });
+          }
+        } catch (e) {}
+
+        // 時計更新（smsと同じ）
+        function updateClock() {
+          const d = new Date();
+          const hh = String(d.getHours()).padStart(2,"0");
+          const mm = String(d.getMinutes()).padStart(2,"0");
+          const t = document.getElementById("timeText");
+          if (t) t.textContent = `${hh}:${mm}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // 戻る（sms詳細へ）
+        const backBtn = document.getElementById("backBtn");
+        if (backBtn && !embed) {
+          backBtn.addEventListener("click", () => {
+            try { SecLogger.log("click", "phish_back", { q, elapsed_ms: Math.round(performance.now() - t0) }); } catch(e){}
+            location.href = `./sms_delivery.html?q=${q}`;
+          });
+        }
+
+        // 入力→ポップ表示
+        const overlay = document.getElementById("overlay");
+        const modal = document.getElementById("modal");
+        const submitBtn = document.getElementById("submitBtn");
+
+        function openOverlay(){
+          if (!overlay || !modal) return;
+          overlay.classList.add("show");
+          overlay.setAttribute("aria-hidden", "false");
+          modal.classList.remove("shake");
+          void modal.offsetWidth;
+          modal.classList.add("shake");
+        }
+
+        function isFilled(id){
+          const el = document.getElementById(id);
+          return !!(el && el.value && el.value.trim().length > 0);
+        }
+
+        function allFilled(){
+  return isFilled("uid") && isFilled("pw") && isFilled("tel");
+}
+
+const uidEl = document.getElementById("uid");
+const pwEl  = document.getElementById("pw");
+const telEl = document.getElementById("tel");
+const errEl = document.getElementById("formError");
+
+function clearErrors(){
+  [uidEl, pwEl, telEl].forEach(el => el && el.classList.remove("error"));
+  if (errEl) { errEl.style.display = "none"; errEl.textContent = ""; }
+}
+
+function setSubmitState(){
+  if (!submitBtn) return;
+  const ok = allFilled();
+  submitBtn.disabled = !ok;
+}
+[uidEl, pwEl, telEl].forEach(el => {
+  if (el) el.addEventListener("input", () => { clearErrors(); setSubmitState(); });
+});
+setSubmitState(); // 初期状態
+
+
+        if (submitBtn) {
+          submitBtn.addEventListener("click", () => {
+            try {
+              if (!embed && window.SecLogger) {
+                SecLogger.log("decision", "phish_input_submit", {
+                  q,
+                  elapsed_ms: Math.round(performance.now() - t0),
+                  filled: {
+                    uid: isFilled("uid"),
+                    pw:  isFilled("pw"),
+                    tel: isFilled("tel")
+                  }
+                });
+              }
+            } catch(e){}
+            openOverlay();
+          });
+        }
+
+        // 体験なので、背景タップで閉じない（閉じたいならここを削除）
+        if (overlay) {
+          overlay.addEventListener("click", (e) => {
+            if (e.target === overlay && modal) {
+              modal.classList.remove("shake");
+              void modal.offsetWidth;
+              modal.classList.add("shake");
+            }
+          });
+        }
+      </script>
+
+    </div>
+  </div>
+</body>
+</html>
