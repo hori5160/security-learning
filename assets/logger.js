@@ -1,10 +1,9 @@
-// assets/logger.js（ブラウザだけで完結版：localStorageにログ保存＋ダウンロード）
+// assets/logger.js（最小版：必要なものだけ＝decision中心／localStorage保存＋CSV出力）
 (function () {
-  const KEY_EVENTS = "sec_learn_events";
-  const KEY_SESSION = "sec_learn_session_id";
-  const KEY_USER = "sec_learn_user_label";
+  const KEY_EVENTS   = "sec_learn_events";
+  const KEY_SESSION  = "sec_learn_session_id";
+  const KEY_USER     = "sec_learn_user_label";
   const KEY_SCENARIO = "sec_learn_scenario_id";
-  const KEY_PAGE_ENTER = "sec_learn_page_enter_ts";
 
   function uuid() {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -34,19 +33,50 @@
     return sid;
   }
 
+  function setUserLabel(label) {
+    const v = String(label || "").trim().slice(0, 32);
+    if (v) localStorage.setItem(KEY_USER, v);
+  }
+
+  function getUserLabelFromUrl() {
+    try {
+      const u = new URLSearchParams(location.search).get("u");
+      if (u) {
+  localStorage.setItem("user_label", u);
+}
+const user_label = localStorage.getItem("user_label") || "anon";
+      if (!u) return "";
+      const v = u.trim().slice(0, 32);
+      // 変な文字が入らないよう軽く制限（A01, user-01 など想定）
+      if (!/^[A-Za-z0-9_-]{1,32}$/.test(v)) return "";
+      return v;
+    } catch { return ""; }
+  }
+
   function getOrAskUserLabel() {
-    let u = localStorage.getItem(KEY_USER);
-    if (!u) {
-      u = prompt("学習者ラベルを入力（例：A01）※本名は入力しないでね") || "anon";
-      u = u.trim().slice(0, 32) || "anon";
-      localStorage.setItem(KEY_USER, u);
+    let u = localStorage.getItem(KEY_USER) || "";
+    if (u) return u;
+
+    const uParam = getUserLabelFromUrl();
+    if (uParam) {
+      setUserLabel(uParam);
+      return uParam;
     }
+
+    // URLに ?u=A01 を付けて配布するのが基本（無いときだけ入力）
+    u = (prompt("参加者IDを入力（例：A01）※本名は入力しないでね") || "").trim().slice(0, 32);
+    if (!u) u = "anon";
+    setUserLabel(u);
     return u;
   }
 
   function getScenarioId() {
     return localStorage.getItem(KEY_SCENARIO) || "unknown";
   }
+
+  // 起動時にURLの ?u= があれば自動セット（以後はlocalStorageに残る）
+  const bootLabel = getUserLabelFromUrl();
+  if (bootLabel) setUserLabel(bootLabel);
 
   function log(event_type, target = "", meta = {}) {
     const entry = {
@@ -55,22 +85,14 @@
       user_label: getOrAskUserLabel(),
       scenario_id: getScenarioId(),
       event_type,
-      page: location.pathname || location.href, // file://対策
+      page: location.pathname || location.href,
       target,
       meta,
     };
     pushEvent(entry);
   }
 
-  function flushDwell() {
-    const enter = Number(localStorage.getItem(KEY_PAGE_ENTER) || Date.now());
-    const dwellMs = Date.now() - enter;
-    localStorage.setItem(KEY_PAGE_ENTER, String(Date.now()));
-    log("dwell", "", { dwellMs });
-  }
-
-  function download(filename, text) {
-    const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+  function downloadBlob(filename, blob) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = filename;
@@ -80,11 +102,6 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
-  function exportJSON() {
-    const events = loadEvents();
-    download(`behavior_log_${getOrCreateSession()}.json`, JSON.stringify(events, null, 2));
-  }
-
   function exportCSV() {
     const events = loadEvents();
     const header = ["ts","session_id","user_label","scenario_id","event_type","page","target","meta_json"];
@@ -92,47 +109,26 @@
       e.ts, e.session_id, e.user_label, e.scenario_id, e.event_type,
       e.page, e.target, JSON.stringify(e.meta || {})
     ]).map(v => `"${String(v).replaceAll('"','""')}"`).join(","));
-    const csv = [header.join(","), ...rows].join("\n");
+
+    // ★Excelの文字化け対策：UTF-8 BOM を先頭に付ける
+    const csv = "\ufeff" + [header.join(","), ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `behavior_log_${getOrCreateSession()}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    downloadBlob(`behavior_log_${getOrCreateSession()}.csv`, blob);
+  }
+
+  function clearLogs() {
+    localStorage.removeItem(KEY_EVENTS);
   }
 
   window.SecLogger = {
     startScenario: function (scenarioId) {
       localStorage.setItem(KEY_SCENARIO, scenarioId);
-      localStorage.setItem(KEY_PAGE_ENTER, String(Date.now()));
       log("session_start", "", { scenarioId });
       log("page_view", "", { title: document.title });
     },
     log,
-    endSession: function () { log("session_end", "", {}); },
-    exportJSON,
     exportCSV,
-    clearLogs: function () { localStorage.removeItem(KEY_EVENTS); }
+    clearLogs,
+    setUserLabel,
   };
-
-  // 全クリックログ
-  document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("a,button,input,div,span");
-    if (!el) return;
-    const tag = el.tagName.toLowerCase();
-    const text = (el.innerText || el.value || "").trim().slice(0, 60);
-    const href = el.getAttribute && el.getAttribute("href");
-    const id = el.id ? `#${el.id}` : "";
-    const cls = el.className ? "." + String(el.className).trim().split(/\s+/).slice(0, 3).join(".") : "";
-    const target = `${tag}${id}${cls}`;
-    log("click", target, { text, href });
-  });
-
-  // ページ離脱で滞在時間
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") flushDwell();
-  });
-  window.addEventListener("beforeunload", () => { flushDwell(); });
 })();
