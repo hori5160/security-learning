@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>スミッシング</title>
+
+  <link rel="stylesheet" href="../../../assets/app.css" />
+  <script src="../../../assets/logger.js"></script>
+  <script src="../common/scenario_core.js"></script>
+<script src="../common/delivery_questions.js"></script>
+
+  <style>
+    /* =========================================
+       基本設定（フォント・リセット）
+       ========================================= */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      margin: 0;
+      background-color: #f0f0f0; /* 外側の背景 */
+    }
+
+    /* =========================================
+       スマホ外枠（deviceWrap, device, bezel）
+       ※既存の学習システムのデザインを維持
+       ========================================= */
+    .deviceWrap{
+      display:flex;
+      justify-content:center;
+      margin-top: 40px;
+    }
+    .device{
+      width:min(390px, 92vw);
+      aspect-ratio: 11 / 19.5;
+      border-radius: 42px;
+      padding: 8px;
+      background: linear-gradient(180deg, #2a2a2a, #313131);
+      border: 1px solid rgba(0,0,0,.85);
+      box-shadow:
+        0 18px 50px rgba(0,0,0,.45),
+        0 0 0 2px rgba(255,255,255,.06) inset;
+      position: relative;
+    }
+    .bezel{
+      height: 100%;
+      border-radius: 34px;
+      overflow:hidden;
+      border: 1px solid rgba(148,163,184,.25);
+      background: #ffffff; /* アプリ背景は白 */
+      position: relative;
+    }
+    .notch{
+      position:absolute;
+      top:5px; left:50%;
+      transform: translateX(-50%);
+      width: 150px; height: 28px;
+      border-radius: 0 0 16px 16px;
+      background: rgba(2,6,23,.85);
+      z-index: 100;
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      pointer-events:none;
+    }
+    .spk{ width:60px; height:6px; border-radius:999px; background: rgba(255,255,255,.16); }
+    .cam{ width:10px; height:10px; border-radius:999px; background: rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.12); }
+
+    /* =========================================
+       画面内レイアウト（受信トレイ）
+       ========================================= */
+    .inboxScreen{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      background:#ffffff;
+      color:#000;
+      position: relative;
+    }
+
+    /* --- ステータスバー --- */
+    .statusbarReal{
+      height: 44px;
+      padding: 10px 24px 6px; /* ノッチを避けるため左右パディング広め */
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      font-size: 14px;
+      font-weight: 600;
+      color: #000;
+      background:#fff;
+      z-index: 50;
+    }
+    .sbRight{ display:flex; gap:6px; align-items:center; }
+    .bat{
+      width:24px; height:11px; border-radius:3px;
+      border:1px solid #999;
+      position:relative;
+    }
+    .bat::after{
+      content:""; position:absolute; right:-4px; top:3px;
+      width:2px; height:4px; border-radius:1px; background: #999;
+    }
+    .bat i{
+      position:absolute; left:1px; top:1px; bottom:1px;
+      width:90%; border-radius:2px; background: #000; display:block;
+    }
+
+    /* --- iOS風ヘッダーエリア --- */
+    .iosHeader {
+      padding: 0 20px 10px;
+      background: #fff;
+    }
+    /* 「編集」とメニューアイコンの行 */
+    .headerTopRow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 44px;
+      margin-bottom: 4px;
+    }
+    .editBtn {
+      font-size: 15px;
+      color: #007AFF; /* iOS Blue */
+      background: #f2f2f7;
+      padding: 6px 14px;
+      border-radius: 99px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .menuBtn {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: #f2f2f7;
+      color: #000;
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    /* 「メッセージ」大見出し */
+    .pageTitle {
+      font-size: 32px;
+      font-weight: 800;
+      margin: 0;
+      letter-spacing: -0.5px;
+    }
+
+    /* --- リストエリア --- */
+    .list{
+      flex:1;
+      overflow-y: auto;
+      padding-bottom: 80px; /* 下部の検索バーのために余白を確保 */
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .row{
+      display:flex;
+      align-items: center;
+      padding: 10px 0 10px 16px; /* 左パディングあり、右は矢印エリア */
+      text-decoration:none;
+      color: inherit;
+      cursor:pointer;
+      position: relative;
+    }
+    /* 区切り線（アバターの下には線を引かないiOSスタイル） */
+    .row::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      left: 76px; /* アバターの幅分空ける */
+      height: 1px;
+      background: #e5e5ea;
+      transform: scaleY(0.5); /* Retina対応の細い線 */
+    }
+    .row:active{ background: #e5e5ea; }
+
+    /* アバター（画像コンテナ） */
+    .avatar{
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      background: #e5e5ea; /* 画像読み込み前の背景色 */
+      flex: 0 0 auto;
+      margin-right: 12px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    /* 画像自体のスタイル */
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover; /* 枠に合わせてトリミング */
+    }
+    
+    /* 以前のSVG用CSSは削除しました */
+
+    .rowContent{
+      flex: 1;
+      min-width: 0;
+      padding-right: 30px; /* 右矢印のスペース */
+      position: relative;
+    }
+
+    .topLine{
+      display:flex; justify-content:space-between; align-items: baseline;
+      margin-bottom: 2px;
+    }
+    .senderName{
+      font-size: 16px;
+      font-weight: 600;
+      color: #000;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    .msgDate{
+      font-size: 14px;
+      color: #8e8e93;
+      margin-left: 8px;
+      flex: 0 0 auto;
+    }
+    
+    .snippetLine {
+      display: flex;
+      align-items: flex-start;
+    }
+    .snippet{
+      font-size: 14px;
+      color: #8e8e93;
+      overflow:hidden;
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+      line-height: 1.3;
+      flex: 1;
+    }
+
+    /* 未読ドット（青） */
+    .unreadDot{
+      width: 10px; height: 10px;
+      background: #007AFF;
+      border-radius: 50%;
+      position: absolute;
+      left: -12px; /* 左端に配置 */
+      top: 50%; transform: translateY(-50%);
+    }
+
+    /* 右端の矢印（Chevron） */
+    .chevron {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #c7c7cc;
+      font-size: 18px;
+      font-weight: 600;
+      font-family: monospace; /* 記号の形を整えるため */
+    }
+
+    /* --- ボトムエリア（検索バー + 作成ボタン） --- */
+    .bottomFloatBar {
+      position: absolute;
+      bottom: 20px;
+      left: 0; right: 0;
+      padding: 0 16px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      background: transparent; /* 背景は透過（リストの上に浮く） */
+      pointer-events: none; /* エリア全体はクリック透過 */
+    }
+    .searchPill {
+      pointer-events: auto;
+      flex: 1;
+      height: 48px;
+      background: rgba(245, 245, 245, 0.95); /* すりガラス風 */
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      color: #8e8e93;
+      font-size: 17px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .searchIcon { margin-right: 8px; }
+    
+    .composeBtn {
+      pointer-events: auto;
+      width: 48px; height: 48px;
+      background: rgba(245, 245, 245, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      color: #007AFF;
+      font-size: 22px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      cursor: pointer;
+    }
+
+    /* ホームバー */
+    .homeIndicator{
+      position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+      width: 130px; height: 5px;
+      background: #000;
+      border-radius: 10px;
+      z-index: 100;
+    }
+
+  </style>
+  <script src="./delivery_questions.js"></script>
+
+</head>
+
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <div class="btitle">スミッシング</div>
+          <div class="bmeta">実際の操作で判断しよう</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card" style="padding-bottom: 55px;">
+      <div class="kv">
+        <span class="badge warn">現在の状況</span>
+        <span class="small"><h3>ログイン認証コード（ワンタイムパスワード）のSMSが届いています。開いて確認してみましょう↓</h3></span>
+      </div>
+      <div class="hr"></div>
+
+      <div class="deviceWrap">
+        <div class="device">
+          <div class="notch"><span class="spk"></span><span class="cam"></span></div>
+
+          <div class="bezel">
+            <div class="inboxScreen">
+              <div class="statusbarReal">
+                <div id="timeText">18:07</div>
+                <div class="sbRight">
+                  <span>4G</span>
+                  <span class="bat"><i></i></span>
+                  <span style="font-size:12px">95</span>
+                </div>
+              </div>
+
+              <div class="iosHeader">
+                <div class="headerTopRow">
+                  <div class="editBtn">編集</div>
+                  <div class="menuBtn">≡</div> </div>
+                <h1 class="pageTitle">メッセージ</h1>
+              </div>
+
+              <div class="list">
+                
+                <div class="row" data-thread="delivery" data-href="./sms_delivery.html?q=1">
+
+                  <div style="position:relative;">
+                    <div class="unreadDot" style="left: -8px;"></div>
+                    <div class="avatar">
+                      <img src="aicon.normal.png" alt="認証アイコン">
+                    </div>
+                  </div>
+                  
+                  <div class="rowContent">
+                    <div class="topLine">
+                      <div class="senderName">0033445566</div>
+                      <div class="msgDate">10:35 ></div>
+                    </div>
+                    <div class="snippetLine">
+                       <div class="snippet">
+                         認証コード：482916（10分以内有効）。心当たりがない場合は、このSMSを...
+                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="row" data-thread="dummy1">
+                   <div class="avatar">
+                      <img src="aicon.normal.png" alt="Amazon風アイコン">
+                   </div>
+                   <div class="rowContent">
+                     <div class="topLine">
+                       <div class="senderName">0033445566</div>
+                       <div class="msgDate">2026/01/15</div>
+                     </div>
+                     <div class="snippet">
+                       Amazon コード：111111。心当たりがない場合はこちらから拒否...
+                     </div>
+                   </div>
+                   <div class="chevron">›</div>
+                </div>
+
+                <div class="row" data-thread="dummy2">
+                   <div class="avatar">
+                      <img src="aicon.normal.png" alt="認証アイコン">
+                   </div>
+                   <div class="rowContent">
+                     <div class="topLine">
+                       <div class="senderName">+44 7873 077</div>
+                       <div class="msgDate">2026/01/03</div>
+                     </div>
+                     <div class="snippet">
+                       112233 は BeReal. Your friends for real の確認コードです。
+                     </div>
+                   </div>
+                   <div class="chevron">›</div>
+                </div>
+
+                 <div class="row" data-thread="dummy3">
+                  <div class="avatar">
+                      <img src="aicon.normal.png" alt="カード会社アイコン">
+                  </div>
+                  <div class="rowContent">
+                    <div class="topLine">
+                      <div class="senderName">4791340930</div>
+                      <div class="msgDate">2025/12/29</div>
+                    </div>
+                    <div class="snippet">
+                      クレジットカードのお支払いがまだです。こちらからお願いします...
+                    </div>
+                  </div>
+                  <div class="chevron">›</div>
+               </div>
+
+                <div class="row" data-thread="friend">
+                  <div class="avatar">
+                      <img src="aicon.normal.png" alt="友達アイコン">
+                  </div>
+                  <div class="rowContent">
+                    <div class="topLine">
+                      <div class="senderName">友達</div>
+                      <div class="msgDate">2025/12/06</div>
+                    </div>
+                    <div class="snippet">おつかれさまでした！</div>
+                  </div>
+                  <div class="chevron">›</div>
+                </div>
+              </div>
+
+              <div class="bottomFloatBar">
+                <div class="searchPill">
+                  <span class="searchIcon">🔍</span>
+                  <span>検索</span>
+                </div>
+                <div class="composeBtn">
+                  📝
+                </div>
+              </div>
+
+              <div class="homeIndicator"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+  // ===== URLパラメータ =====
+  const params = new URLSearchParams(location.search);
+  const q = Number(params.get("q") || "1");
+
+  // 宅配の行（1行目）を q に合わせてリンク更新
+  const deliveryRow = document.querySelector('.row[data-thread="delivery"]');
+  if (deliveryRow) {
+    deliveryRow.dataset.href = `./sms_delivery.html?q=${q}`;
+  }
+
+  // ===== ログ開始（安全に） =====
+  try {
+    const sid = (window.Delivery10 && window.Delivery10.SCENARIO_ID)
+      ? window.Delivery10.SCENARIO_ID
+      : "delivery10";
+
+    const currentScenario = localStorage.getItem("sec_learn_scenario_id");
+    if (currentScenario !== sid && window.SecLogger && SecLogger.startScenario) {
+      SecLogger.startScenario(sid);
+    }
+    if (window.SecLogger && SecLogger.log) {
+      SecLogger.log("page_view", "sms_inbox_delivery", { q, title: document.title });
+    }
+  } catch (e) {
+    console.warn("logger error:", e);
+  }
+
+  const t0 = performance.now();
+
+  // 行選択時の処理
+  document.querySelectorAll(".row").forEach(row => {
+    row.addEventListener("click", () => {
+      const href = row.dataset.href;
+      const thread = row.dataset.thread || "unknown";
+
+      // 宅配以外はログだけ
+      if (thread !== "delivery") {
+        try { SecLogger.log("click", "inbox_dummy", { thread }); } catch(e){}
+        return;
+      }
+
+      // 遷移
+      if (href) {
+        try {
+          SecLogger.log("decision", "open_thread", {
+            thread,
+            elapsed_ms: Math.round(performance.now() - t0)
+          });
+        } catch(e){}
+        setTimeout(() => { location.href = href; }, 80);
+      }
+    });
+  });
+
+  // 時計更新
+  function updateClock() {
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2,"0");
+    const mm = String(d.getMinutes()).padStart(2,"0");
+    const el = document.getElementById("timeText");
+    if (el) el.textContent = `${hh}:${mm}`;
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+</script>
+
+
+    </div>
+  </div>
+</body>
+</html>

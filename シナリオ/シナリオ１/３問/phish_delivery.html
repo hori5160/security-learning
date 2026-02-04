@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>フィッシング体験（Amazon）</title>
+
+  <link rel="stylesheet" href="../../../assets/app.css" />
+  <script src="../../../assets/logger.js"></script>
+  <script src="../common/scenario_core.js"></script>
+  <script src="../common/delivery_questions.js"></script>
+  <style>
+
+    /* =========================================
+       基本設定
+       ========================================= */
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      margin: 0;
+      background-color: #f0f0f0;
+    }
+
+    /* =========================================
+       スマホ外枠（deviceWrap, device, bezel）
+       ========================================= */
+    .deviceWrap{
+      display:flex;
+      justify-content:center;
+      margin-top: 40px;
+    }
+    .device{
+      width:min(390px, 92vw);
+      aspect-ratio: 11 / 19.5;
+      border-radius: 42px;
+      padding: 8px;
+      background: linear-gradient(180deg, #2a2a2a, #313131);
+      border: 1px solid rgba(0,0,0,.85);
+      box-shadow:
+        0 18px 50px rgba(0,0,0,.45),
+        0 0 0 2px rgba(255,255,255,.06) inset;
+      position: relative;
+    }
+    .bezel{
+      height: 100%;
+      border-radius: 34px;
+      overflow:hidden;
+      border: 1px solid rgba(148,163,184,.25);
+      background: #ffffff;
+      position: relative;
+    }
+    .notch{
+      position:absolute;
+      top:5px; left:50%;
+      transform: translateX(-50%);
+      width: 150px; height: 28px;
+      border-radius: 0 0 16px 16px;
+      background: rgba(2,6,23,.85);
+      z-index: 100;
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      pointer-events:none;
+    }
+    .spk{ width:60px; height:6px; border-radius:999px; background: rgba(255,255,255,.16); }
+    .cam{ width:10px; height:10px; border-radius:999px; background: rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.12); }
+
+    /* =========================================
+       Webビュー画面
+       ========================================= */
+    .webScreen{
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      position: relative;
+    }
+
+    /* --- ステータスバー --- */
+    .statusbarReal{
+      height: 44px;
+      padding: 10px 24px 6px;
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      font-size: 14px;
+      font-weight: 600;
+      color: #000;
+      background: #fff;
+      z-index: 50;
+    }
+    .sbRight{ display:flex; gap:6px; align-items:center; }
+    .bat{
+      width:24px; height:11px; border-radius:3px;
+      border:1px solid #999;
+      position:relative;
+    }
+    .bat::after{
+      content:""; position:absolute; right:-4px; top:3px;
+      width:2px; height:4px; border-radius:1px; background: #999;
+    }
+    .bat i{
+      position:absolute; left:1px; top:1px; bottom:1px;
+      width:90%; border-radius:2px; background: #000; display:block;
+    }
+
+    /* --- Safari風バー --- */
+    .safariBar{
+      background: rgba(250,250,250,0.94);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid #d1d1d6;
+      padding: 6px 12px 8px;
+      z-index: 40;
+    }
+    .safariTopRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      font-size: 18px;
+      margin-bottom: 6px;
+    }
+    .safariTopRow > div{
+      cursor: pointer;
+      color: #007AFF;
+      font-size: 24px;
+    }
+    .safariCenter{
+      font-size: 13px;
+      font-weight: 600;
+      color: #000;
+    }
+    .safariAddr{
+      background: #fff;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: #000;
+      display:flex;
+      align-items:center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .lockDot{
+      width: 14px; height: 14px;
+      background: #34c759;
+      border-radius: 50%;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .lockDot::before{
+      content: "🔒";
+      position: absolute;
+      font-size: 8px;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .addrText{
+      flex:1;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .safariPill{
+      font-size: 10px;
+      color: #8e8e93;
+      text-align: center;
+      background: #f2f2f7;
+      padding: 3px 8px;
+      border-radius: 10px;
+      display: inline-block;
+      margin: 0 auto;
+      display: block;
+      width: fit-content;
+    }
+
+    /* --- スクロール可能なWeb画面コンテンツ --- */
+    .webScroll{
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      background: #fff;
+      padding-bottom: 70px;
+    }
+
+    /* Amazon風のサイトトップバー */
+    .siteTopbar{
+      background: linear-gradient(to bottom, #232f3e, #131921);
+      color: #fff;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: relative;
+    }
+    .amazon-logo{
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .amazon-logo::after{
+      content: "";
+      display: inline-block;
+      width: 16px;
+      height: 2px;
+      background: #8cf7a5;
+      margin-left: 2px;
+      border-radius: 2px;
+      position: relative;
+      top: -3px;
+    }
+
+    /* コンテンツエリア */
+    .content{
+      padding: 24px 20px;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    /* タイトル */
+    .content h1{
+      font-size: 26px;
+      font-weight: 400;
+      margin: 0 0 16px 0;
+      color: #0F1111;
+    }
+
+    /* 警告メッセージ */
+    .warning-box{
+      background: #FFF3CD;
+      border: 1px solid #FFECB5;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #664d03;
+      line-height: 1.5;
+    }
+    .warning-box strong{
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+
+    /* 入力グループ */
+    .input-group{
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .input-group label{
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: #0F1111;
+      margin-bottom: 4px;
+    }
+    .input-group input{
+      width: 100%;
+      padding: 8px 10px;
+      font-size: 14px;
+      border: 1px solid #888C8C;
+      border-radius: 3px;
+      box-shadow: 0 1px 2px rgba(15,17,17,.15) inset;
+      background: #fff;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .input-group input:focus{
+      outline: none;
+      border-color: #92d099;
+      box-shadow: 0 0 3px 2px rgba(228,121,17,.5), 0 1px 2px rgba(15,17,17,.15) inset;
+    }
+    .input-group input.error{
+      border-color: #C40000;
+    }
+    .error-msg{
+      font-size: 12px;
+      color: #C40000;
+      margin-top: 4px;
+      display: none;
+    }
+    .error-msg.show{
+      display: block;
+    }
+
+    /* 送信ボタン */
+    .btn-submit{
+      width: 100%;
+      background: linear-gradient(to bottom, #cff294, #8cf7a5);
+      border: 1px solid #a88734;
+      border-radius: 3px;
+      color: #111;
+      font-size: 14px;
+      font-weight: 400;
+      padding: 10px;
+      cursor: pointer;
+      box-shadow: 0 1px 0 rgba(255,255,255,.4) inset;
+      transition: background 0.1s;
+    }
+    .btn-submit:hover{
+      background: linear-gradient(to bottom, #b1db68, #6ddb87);
+    }
+    .btn-submit:active{
+      transform: translateY(1px);
+      box-shadow: 0 0 0 rgba(255,255,255,.4) inset;
+    }
+
+    /* オーバーレイ */
+    .overlay-backdrop{
+      position:absolute;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background: rgba(17,24,39,0.45);
+      z-index: 999;
+    }
+    .overlay-backdrop.show{
+      display:flex;
+    }
+
+    .popup-box{
+      width: min(320px, 86%);
+      background: #ffffff;
+      border: 2px solid rgba(0,0,0,0.12);
+      border-radius: 16px;
+      padding: 16px 14px;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.22);
+      text-align: center;
+    }
+    .popup-icon{
+      font-size: 40px;
+      display: block;
+      margin-bottom: 8px;
+    }
+    .popup-title{ 
+      font-size: 18px; 
+      font-weight: 900; 
+      color:#111827; 
+      margin: 0 0 8px; 
+    }
+    .popup-text{ 
+      font-size: 13px; 
+      color:#374151; 
+      margin: 0 0 10px; 
+      line-height: 1.6; 
+    }
+
+    /* Safari ボトムバー */
+    .safari-bottom-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 44px;
+      background-color: #f8f8f8;
+      border-top: 1px solid #b2b2b2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      box-sizing: border-box;
+      z-index: 100;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    .safari-icon {
+      width: 20px;
+      height: 20px;
+      color: #007aff;
+      cursor: pointer;
+    }
+    .safari-icon.disabled { 
+      color: #c7c7cc; 
+      cursor: default; 
+    }
+
+    .safari-nav-group, .safari-action-group {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .safari-address-fake {
+      flex-grow: 1;
+      text-align: center;
+      font-size: 12px;
+      color: #000;
+      font-weight: 500;
+      margin: 0 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* ホームバー */
+    .homeIndicator{
+      position: absolute; 
+      bottom: 6px; 
+      left: 50%; 
+      transform: translateX(-50%);
+      width: 130px; 
+      height: 5px;
+      background: #000;
+      border-radius: 10px;
+      z-index: 100;
+    }
+
+    /* フォーム操作の安定化 */
+    html, body{
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+    .webScreen, .webScreen *{
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .webScreen input,
+    .webScreen textarea,
+    .webScreen select,
+    .webScreen button{
+      font-size: 16px;
+    }
+    .webScreen input{
+      line-height: 1.2;
+    }
+    .webScroll{
+      -webkit-overflow-scrolling: touch;
+    }
+
+  </style>
+</head>
+
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <div class="btitle">スミッシング</div>
+          <div class="bmeta">実際の操作で判断しよう</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card" style="padding-bottom: 55px;">
+      <div class="kv">
+        <span class="badge warn">現在の状況</span>
+        <span class="small"><h3>偽のAmazonログインページが開きました。<br>情報を入力するとどうなるでしょうか?</h3></span>
+      </div>
+      <div class="hr"></div>
+
+      <div class="deviceWrap">
+        <div class="device">
+          <div class="notch"><span class="spk"></span><span class="cam"></span></div>
+
+          <div class="bezel">
+            <div class="webScreen" id="webScreen">
+              <div class="statusbarReal">
+                <div id="timeText">14:24</div>
+                <div class="sbRight">
+                  <span>4G</span>
+                  <span class="bat"><i></i></span>
+                  <span style="font-size:12px">73</span>
+                </div>
+              </div>
+
+              
+
+              <div class="webScroll">
+                <!-- Amazon風トップバー -->
+                <div class="siteTopbar">
+                  <div class="amazon-logo">Mamazon</div>
+                  <div style="flex:1"></div>
+                  <div style="font-size:20px">🔍</div>
+                  <div style="font-size:20px">🛒</div>
+                </div>
+
+                <div class="content">
+                  <h1>サインイン</h1>
+
+                  <div class="warning-box">
+                    <strong>⚠️ お支払い方法の更新が必要です</strong>
+                    お客様のアカウントで異常な活動が検出されました。24時間以内にお支払い方法を更新しない場合、ご注文がキャンセルされます。
+                  </div>
+
+                  <div class="input-group">
+                    <label>Eメールまたは携帯電話番号</label>
+                    <input type="text" id="email" placeholder="example@mail.com" enterkeyhint="next">
+                    <div class="error-msg">Eメールまたは携帯電話番号を入力してください</div>
+                  </div>
+
+                  <div class="input-group">
+                    <label>パスワード</label>
+                    <input type="password" id="password" placeholder="" enterkeyhint="next">
+                    <div class="error-msg">パスワードを入力してください</div>
+                  </div>
+
+                  <div class="input-group">
+                    <label>クレジットカード番号</label>
+                    <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456" enterkeyhint="next">
+                    <div class="error-msg">クレジットカード番号を入力してください</div>
+                  </div>
+
+                  <div class="input-group">
+                    <label>有効期限 (MM/YY)</label>
+                    <input type="text" id="expiry" placeholder="12/25" enterkeyhint="next">
+                    <div class="error-msg">有効期限を入力してください</div>
+                  </div>
+
+                  <div class="input-group">
+                    <label>セキュリティコード (CVV)</label>
+                    <input type="text" id="cvv" placeholder="123" enterkeyhint="done">
+                    <div class="error-msg">セキュリティコードを入力してください</div>
+                  </div>
+
+                  <button class="btn-submit" onclick="handleSubmit()">続行</button>
+                  
+                  <p style="font-size:11px; color:#565959; margin-top:16px; line-height:1.4;">
+                    続行することで、Mamazonの利用規約およびプライバシー規約に同意したものとみなされます。
+                  </p>
+                </div>
+              </div>
+
+              <div class="safari-bottom-bar">
+                <div class="safari-nav-group">
+                  <svg class="safari-icon disabled" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                  <svg class="safari-icon disabled" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </div>
+
+                <div class="safari-address-fake">
+                  <span style="font-size:10px">🔒</span> Mamazon.cc.jp
+                </div>
+
+                <div class="safari-action-group">
+                  <svg class="safari-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+                  <svg class="safari-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+                  <svg class="safari-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                </div>
+              </div>
+
+              <div class="homeIndicator"></div>
+
+              <!-- オーバーレイ -->
+              <div id="overlay" class="overlay-backdrop">
+                <div class="popup-box">
+                  <span class="popup-icon">⚠️</span>
+                  <h2 class="popup-title">送信中…</h2>
+                  <p class="popup-text">
+                    入力内容を確認しています…<br>
+                    しばらくお待ちください。<br>
+                    <strong>メールアドレス・パスワード・<br>クレジットカード情報</strong>が<br>
+                    悪用される危険があります。
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+// 時計更新
+function updateClock() {
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2,"0");
+  const mm = String(d.getMinutes()).padStart(2,"0");
+  const t = document.getElementById("timeText");
+  if (t) {
+    const next = `${hh}:${mm}`;
+    if (t.textContent !== next) t.textContent = next;
+  }
+}
+setInterval(updateClock, 30000);
+updateClock();
+
+// Enterキーでのフォーカス移動処理
+const inputs = [
+  document.getElementById("email"),
+  document.getElementById("password"),
+  document.getElementById("cardNumber"),
+  document.getElementById("expiry"),
+  document.getElementById("cvv")
+];
+
+inputs.forEach((input, index) => {
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const nextInput = inputs[index + 1];
+      if (nextInput) {
+        nextInput.focus();
+      } else {
+        input.blur();
+      }
+    }
+  });
+});
+
+// クエリパラメータ処理
+const params = new URLSearchParams(location.search);
+const q = params.get("q") || "1";
+
+// ログ：ページ閲覧
+try {
+  if (window.SecLogger) {
+    SecLogger.log("page_view", "phish_form_amazon", { q });
+  }
+} catch(e){}
+
+// 送信ボタン処理
+function handleSubmit() {
+  const emailInput = document.getElementById("email");
+  const passwordInput = document.getElementById("password");
+  const cardNumberInput = document.getElementById("cardNumber");
+  const expiryInput = document.getElementById("expiry");
+  const cvvInput = document.getElementById("cvv");
+  let hasError = false;
+
+  const validate = (input) => {
+    const msg = input.parentElement.querySelector('.error-msg');
+    if (!input.value.trim()) {
+      input.classList.add('error');
+      msg.classList.add('show');
+      hasError = true;
+    } else {
+      input.classList.remove('error');
+      msg.classList.remove('show');
+    }
+  };
+
+  validate(emailInput);
+  validate(passwordInput);
+  validate(cardNumberInput);
+  validate(expiryInput);
+  validate(cvvInput);
+
+  if (hasError) return;
+
+  // ログ：入力してしまった
+  try {
+    SecLogger.log("decision", "phished_input_complete", {
+      q,
+      email_len: emailInput.value.length,
+      password_len: passwordInput.value.length,
+      card_len: cardNumberInput.value.length,
+      expiry_len: expiryInput.value.length,
+      cvv_len: cvvInput.value.length
+    });
+  } catch(e){}
+
+  // オーバーレイを表示
+  const overlay = document.getElementById("overlay");
+  overlay.classList.add("show");
+
+  // 少し待って「結果画面」へ遷移
+  setTimeout(() => {
+    location.href = `./phish_result_delivery.html?route=phished&q=${q}`;
+  }, 900);
+}
+
+// Safariアドレス表示
+try {
+  const addrEl = document.getElementById("addrText");
+  if (addrEl) {
+    const params = new URLSearchParams(location.search);
+    const q = Number(params.get("q") || "1");
+    if (window.SC && SC.sms && SC.sms.urlText) {
+      // scenario_config.jsの設定があればそれを使用
+      addrEl.textContent = SC.sms.urlText;
+    }
+  }
+} catch(e) {}
+
+      </script>
+    </div>
+  </div>
+</body>
+</html>

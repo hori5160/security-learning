@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>提供元不明の許可（疑似）</title>
+
+  <link rel="stylesheet" href="../../../assets/app.css" />
+  <script src="../../../assets/logger.js"></script>
+  <script src="../common/scenario_core.js"></script>
+
+  <style>
+
+    /* ======================================================
+       ベース（sms_delivery / sms_inbox と同じスマホ枠に寄せる）
+       ====================================================== */
+    * { box-sizing: border-box; }
+    body{
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      margin: 0;
+      background:#f0f0f0;
+    }
+
+    .deviceWrap{
+      display:flex;
+      justify-content:center;
+      margin-top: 40px;
+    }
+    .device{
+      width:min(390px, 92vw);
+      aspect-ratio: 11 / 19.5;
+      border-radius: 42px;
+      padding: 8px;
+      background: linear-gradient(180deg, #2a2a2a, #313131);
+      border: 1px solid rgba(0,0,0,.85);
+      box-shadow:
+        0 18px 50px rgba(0,0,0,.45),
+        0 0 0 2px rgba(255,255,255,.06) inset;
+      position: relative;
+    }
+    .bezel{
+      height:100%;
+      border-radius: 34px;
+      overflow:hidden;
+      border: 1px solid rgba(12, 38, 73, 0.25);
+      background:#fff;
+      position:relative;
+    }
+    .notch{
+      position:absolute;
+      top:5px; left:50%;
+      transform: translateX(-50%);
+      width: 150px; height: 28px;
+      border-radius: 0 0 16px 16px;
+      background: rgba(2,6,23,.85);
+      z-index: 100;
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      pointer-events:none;
+    }
+    .spk{ width:60px; height:6px; border-radius:999px; background: rgba(255,255,255,.16); }
+    .cam{ width:10px; height:10px; border-radius:999px; background: rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.12); }
+
+    /* ★ここが「時間・バッテリー位置」合わせの本体 */
+    .statusbarReal{
+      height: 44px;
+      padding: 1px 12px 17px; /* sms_delivery と同じ */
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      font-size: 14px;
+      font-weight: 600;
+      color: #000;
+      background:#fff;
+      z-index: 50;
+    }
+    .sbRight{ display:flex; gap:6px; align-items:center; }
+    .bat{
+      width:24px; height:11px; border-radius:3px;
+      border:1px solid #999;
+      position:relative;
+    }
+    .bat::after{
+      content:""; position:absolute; right:-4px; top:3px;
+      width:2px; height:4px; border-radius:1px; background: #999;
+    }
+    .bat i{
+      position:absolute; left:1px; top:1px; bottom:1px;
+      width:90%; border-radius:2px; background: #000; display:block;
+    }
+
+    .screen{
+      --inset: 12px;
+      --bottomUiH: 108px;
+      --bottomBarH: 64px;
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      background:#fff;
+      position: relative;
+    }
+
+    .homeIndicator{
+      position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+      width: 130px; height: 5px;
+      background: #000;
+      border-radius: 10px;
+      z-index: 120;
+      pointer-events:none;
+      opacity: .9;
+    }
+
+    /* ======================================================
+       下のボタンを「スマホ内のポップ（ボトムシート）」風に
+       ====================================================== */
+    .bottomSheet{
+      position:absolute;
+      left: var(--inset);
+      right: var(--inset);
+      bottom: var(--inset); /* homeIndicator と被りにくい */
+      background: rgba(255,255,255,.96);
+      border: 1px solid rgba(0,0,0,.10);
+      border-radius: 18px;
+      box-shadow: 0 22px 55px rgba(0,0,0,.28);
+      padding: 10px 10px 12px;
+      z-index: 110;
+      backdrop-filter: blur(10px);
+    }
+    .sheetHandle{
+      width: 44px;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(2,6,23,.18);
+      margin: 0 auto 10px;
+    }
+    .sheetRow{ display:flex; gap:10px; }
+    .sheetBtn{
+      flex: 1;
+      border: none;
+      border-radius: 14px;
+      padding: 12px 10px;
+      font-weight: 900;
+      font-size: 14px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .sheetBtn.secondary{
+      background:#f1f5f9;
+      color:#0f172a;
+      border: 1px solid rgba(2,6,23,.10);
+    }
+    .sheetBtn.primary{
+      background:#2563eb;
+      color:#fff;
+      box-shadow: 0 12px 22px rgba(37,99,235,.22);
+    }
+    .sheetBtn.danger{
+      background:#dc2626;
+      color:#fff;
+      box-shadow: 0 12px 22px rgba(220,38,38,.18);
+    }
+    .sheetBtn:active{ transform: translateY(1px); }
+
+    /* embed=1 の時は上側の説明UIを消す */
+    body.embed .topbar,
+    body.embed .kv,
+    body.embed .hr{ display:none !important; }
+    body.embed .container{ margin-top: 0; }
+
+
+    .head{
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid rgba(0,0,0,.06);
+      display:flex; align-items:center; justify-content:space-between;
+      background: rgba(255,255,255,.92);
+      backdrop-filter: blur(10px);
+      z-index: 40;
+    }
+    .head b{ font-size: 14px; color:#0f172a; }
+    .head span{ font-size:12px; opacity:.65; }
+
+    .content{
+      flex:1;
+      overflow:auto;
+      padding: 14px 14px calc(var(--bottomUiH) + var(--inset) + 10px); /* 下シート分 */
+      -webkit-overflow-scrolling: touch;
+    }
+    .cardIn{
+      border:1px solid rgba(2,6,23,.10);
+      background:#f8fafc;
+      border-radius:14px;
+      padding: 14px;
+    }
+    .p{ font-size: 13px; line-height:1.6; color:#334155; margin: 0 0 10px; }
+
+    .rowSet{
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 12px 10px;
+      background:#fff;
+      border-radius: 12px;
+      border: 1px solid rgba(0,0,0,.08);
+      margin-top: 10px;
+    }
+    .rowSet .left{ display:flex; flex-direction:column; gap:2px; }
+    .rowSet .left span{ font-size: 12px; color:#334155; }
+    .rowSet .left b{ font-size: 13px; color:#0f172a; }
+
+    /* トグル */
+    .switch{ position:relative; width:48px; height:28px; }
+    .switch input{ display:none; }
+    .slider{
+      position:absolute; inset:0;
+      background:#cbd5e1;
+      border-radius:999px;
+      transition:.2s;
+      cursor:pointer;
+    }
+    .slider:before{
+      content:"";
+      position:absolute;
+      height:22px; width:22px;
+      left:3px; top:3px;
+      background:white;
+      border-radius:999px;
+      transition:.2s;
+      box-shadow: 0 3px 10px rgba(0,0,0,.18);
+    }
+    .switch input:checked + .slider{ background:#22c55e; }
+    .switch input:checked + .slider:before{ transform: translateX(20px); }
+
+    .warn{
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(220,38,38,.20);
+      background: rgba(220,38,38,.06);
+      color:#991b1b;
+      font-size: 12px;
+      display:none;
+    }
+    .warn.show{ display:block; }
+
+    .sub{
+      margin-top: 10px;
+      font-size: 11px;
+      color: rgba(15,23,42,.70);
+      line-height: 1.5;
+    }
+
+  
+
+    /* =========================================================
+       Android外枠（v2）: iPhoneノッチ/ホームバーをやめて
+       画像のような「パンチホール＋3ボタン無し(黒線無し)」へ寄せる
+       ※既存UI(中身)は触らず、外枠だけ上書きする
+       ========================================================= */
+    /* iPhoneノッチは使わない */
+    .notch{ display:none !important; }
+
+    /* Androidっぽい比率・角丸 */
+    .device{
+      width:min(380px, 92vw) !important;
+      aspect-ratio: 9 / 19.5 !important;
+      border-radius: 34px !important;
+      padding: 10px !important;
+      background: linear-gradient(180deg, #1b1b1b, #262626) !important;
+      border: 1px solid rgba(0,0,0,.85) !important;
+      box-shadow:
+        0 18px 50px rgba(0,0,0,.45),
+        0 0 0 2px rgba(255,255,255,.05) inset !important;
+      position: relative !important;
+    }
+    .bezel{
+      border-radius: 26px !important;
+    }
+
+    /* 中央パンチホール（カメラ） */
+    .device::before{
+      content:"";
+      position:absolute;
+      top: 10px;
+      left:50%;
+      transform: translateX(-50%);
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: #0b0b0b;
+      box-shadow:
+        0 0 0 4px rgba(0,0,0,0.18),
+        0 0 0 1px rgba(255,255,255,0.06) inset;
+      z-index: 200;
+      pointer-events:none;
+    }
+
+    /* ステータスバー：ノッチ避けパディングを解除してAndroid寄せ */
+    .statusbarReal{
+      height: 32px !important;
+      padding: 8px 14px 0 !important;
+      align-items: center !important;
+      font-size: 12px !important;
+      font-weight: 700 !important;
+    }
+
+    /* Androidは下部の黒いホームバー(線)を出さない */
+    .homeIndicator{ display:none !important; }
+
+
+/* ボトムUIが枠に収まるように */
+.bottomSheet, .safariBar{ box-sizing:border-box; max-width: calc(100% - (var(--inset) * 2)); }
+
+/* app.css の .screen が端末内レイアウトを崩すので無効化（端末内だけ） */
+.device .screen{
+  min-height: 0 !important;
+  max-height: none !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  border-radius: 0 !important;
+}
+
+</style>
+</head>
+
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <div class="btitle">スミッシング</div>
+          <div class="bmeta">実際の操作で判断しよう</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card" style="padding-bottom: 55px;">
+      <div class="kv">
+        <span class="badge warn">現在の状況</span>
+        <span class="small"><h3>「提供元不明のアプリ」を許可するように誘導されます。ONにして進めてみましょう↓</h3></span>
+      </div>
+      <div class="hr"></div>
+
+      <div class="deviceWrap">
+        <div class="device">
+          <div class="notch"><span class="spk"></span><span class="cam"></span></div>
+
+          <div class="bezel">
+            <div class="screen">
+              <div class="statusbarReal">
+                <div id="timeText">18:08</div>
+                <div class="sbRight">
+                  <span>4G</span>
+                  <span class="bat"><i></i></span>
+                  <span style="font-size:12px">95</span>
+                </div>
+              </div>
+
+              <div class="head">
+                <b>不明なアプリをインストール（疑似）</b>
+                <span>設定</span>
+              </div>
+
+              <div class="content">
+                <div class="cardIn">
+                  <p class="p">
+                    次のステップとして、ブラウザ（Chrome）からのインストールを許可するよう求められています。
+                  </p>
+
+                  <div class="rowSet">
+                    <div class="left">
+                      <b>Chrome</b>
+                      <span>この提供元を許可</span>
+                    </div>
+
+                    <label class="switch">
+                      <input id="allowToggle" type="checkbox" />
+                      <span class="slider"></span>
+                    </label>
+                  </div>
+
+                  <div class="warn" id="warnBox">
+                    まだ許可がONになっていません。ONにしてから「次へ」を押してください。
+                  </div>
+
+                  <div class="sub">※学習用の疑似画面です。実際の設定は変更されません。</div>
+                </div>
+              </div>
+
+              <div class="bottomSheet">
+                <div class="sheetHandle"></div>
+                <div class="sheetRow">
+                  <button class="sheetBtn secondary" id="backBtn">戻る</button>
+                  <button class="sheetBtn primary" id="nextBtn">次へ</button>
+                </div>
+              </div>
+
+
+              <div class="homeIndicator"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+
+    const params = new URLSearchParams(location.search);
+    const q = Number(params.get("q") || "1");
+    const embed = params.get("embed") === "1";
+    const t0 = performance.now();
+    if (embed) document.body.classList.add("embed");
+
+    function safeLog(type, target, meta){
+      try{ if(!embed && window.SecLogger) SecLogger.log(type, target, meta); }catch(e){}
+    }
+    function updateClock(){
+      const d = new Date();
+      const hh = String(d.getHours()).padStart(2,"0");
+      const mm = String(d.getMinutes()).padStart(2,"0");
+      const t = document.getElementById("timeText");
+      if(t) t.textContent = `${hh}:${mm}`;
+    }
+    setInterval(updateClock, 30000); updateClock();
+
+    safeLog("page_view", "fake_unknown_sources", { q, elapsed_ms: 0 });
+
+    const toggle = document.getElementById("allowToggle");
+    const warn = document.getElementById("warnBox");
+
+    document.getElementById("backBtn").onclick = () => {
+      safeLog("decision", "unknown_sources_action", { q, choice:"back_to_download", elapsed_ms: Math.round(performance.now()-t0) });
+      location.href = `./fake_download.html?q=${q}`;
+    };
+
+    toggle.addEventListener("change", () => {
+      safeLog("decision", "unknown_sources_action", {
+        q,
+        choice: toggle.checked ? "allow_on" : "allow_off",
+        elapsed_ms: Math.round(performance.now()-t0)
+      });
+      warn.classList.remove("show");
+    });
+
+    document.getElementById("nextBtn").onclick = () => {
+      if(!toggle.checked){
+        warn.classList.add("show");
+        safeLog("decision", "unknown_sources_action", { q, choice:"try_next_without_allow", elapsed_ms: Math.round(performance.now()-t0) });
+        return;
+      }
+      safeLog("decision", "unknown_sources_action", { q, choice:"go_permissions", elapsed_ms: Math.round(performance.now()-t0) });
+      location.href = `./fake_permissions.html?q=${q}`;
+    };
+
+  </script>
+</body>
+</html>

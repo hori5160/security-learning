@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Q1: 宅配便の通知</title>
+  <link rel="stylesheet" href="../../../assets/app.css" />
+  <script src="../../../assets/logger.js"></script>
+  <script src="../common/scenario_core.js"></script>
+
+
+  <style>
+    /* ▼▼▼ 全体を中央に寄せる設定 ▼▼▼ */
+    body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    /* align-items: center; を削除、または修正 */
+    align-items: flex-start; /* 上端から配置を開始する */
+    background-color: #f4f6f8;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    overflow-y: auto; /* スクロールを許可 */
+  }
+  
+  .deviceWrap {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 40px 20px; /* 上下に十分な余白（Safe Area）を確保 */
+    box-sizing: border-box;
+    /* コンテンツが画面より短い時だけ中央寄せにする設定 */
+    min-height: 100vh;
+  }
+
+  .device {
+    background: #fff;
+    max-width: 900px;
+    width: 100%;
+    margin: auto 0; /* これにより、中身が少ない時は中央、多い時は上から配置される */
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    position: relative;
+    /* 見切れ防止：最小の高さを保証しつつ、上方向に突き抜けないようにする */
+  }
+
+    /* ホームボタンエリア */
+    .nav-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .btn-home {
+      display: inline-flex;
+      align-items: center;
+      text-decoration: none;
+      color: #555;
+      font-weight: bold;
+      font-size: 0.9rem;
+      padding: 8px 16px;
+      background-color: #f0f0f0;
+      border-radius: 20px;
+      transition: background-color 0.2s;
+    }
+    .btn-home:hover {
+      background-color: #e0e0e0;
+      color: #333;
+    }
+
+    .quiz-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .quiz-badge {
+      background: #333;
+      color: #fff;
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-weight: bold;
+    }
+    
+    /* ▼▼▼ 画像エリア ▼▼▼ */
+    .image-row {
+      position: relative;
+      display: flex;             
+      justify-content: center;   
+      align-items: flex-start;   
+      gap: 30px;                 
+      flex-wrap: wrap;           
+      margin-bottom: 40px;
+      min-height: 300px;
+    }
+
+    /* ▼▼▼ フィードバック・オーバーレイ（全体を覆う） ▼▼▼ */
+    .feedback-overlay {
+      position: absolute;
+      inset: -20px; /* 親要素より少し広げる */
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(5px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border-radius: 20px;
+      z-index: 50;
+      
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .feedback-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ▼▼▼ 判定アイコンとテキスト ▼▼▼ */
+    .fb-icon {
+      font-size: 6rem;
+      margin-bottom: 0;
+      line-height: 1;
+      animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .fb-text {
+      font-size: 2rem;
+      font-weight: 900;
+      margin-bottom: 20px;
+    }
+    /* 正解・不正解の色 */
+    .is-correct .fb-text { color: #16a34a; }
+    .is-incorrect .fb-text { color: #dc2626; }
+
+    /* ▼▼▼ 新追加：不正解時の解説モーダル ▼▼▼ */
+    .fb-modal {
+      background: #fff;
+      border: 1px solid #ddd;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      max-width: 340px;
+      width: 90%;
+      transform: translateY(20px);
+      opacity: 0;
+      transition: all 0.3s ease 0.3s; /* 少し遅れて出る */
+      display: none; /* 初期は非表示 */
+    }
+    /* 表示時 */
+    .feedback-overlay.show-modal .fb-modal {
+      display: block;
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .fb-modal-title {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #333;
+      margin: 0 0 10px 0;
+    }
+    .fb-modal-desc {
+      font-size: 0.95rem;
+      color: #666;
+      line-height: 1.6;
+      margin: 0 0 20px 0;
+    }
+    .fb-btn-next {
+      background: #6366f1; /* インディゴブルー */
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 50px;
+      font-weight: bold;
+      font-size: 1rem;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+      transition: transform 0.2s, box-shadow 0.2s;
+      width: 100%;
+    }
+    .fb-btn-next:hover {
+      background: #4f46e5;
+      transform: translateY(-2px);
+    }
+
+
+.fb-btn-skip{
+  margin-top: 10px;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+  padding: 12px 24px;
+  border-radius: 50px;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  width: 100%;
+}
+.fb-btn-skip:hover{ background:#e5e7eb; }
+.fb-btn-skip.is-hidden{ display:none; }
+
+    /* アニメーション定義 */
+    @keyframes popIn {
+      0% { transform: scale(0.5); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+
+    /* ▼▼▼ クイズ画像 ▼▼▼ */
+    .image-item {
+      flex: 1;                   
+      min-width: 250px;          
+      max-width: 320px;          
+      text-align: center;
+    }
+    .question-image {
+      display: block;
+      width: 100%;
+      height: auto;
+      border: 0;
+    }
+    iframe.question-image {
+      aspect-ratio: 11 / 19;
+      height: auto;
+      background: white;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+      border-radius: 12px;
+      border: 1px solid #eee;
+    }
+    .img-label {
+      font-weight: bold;
+      color: #555;
+      margin-bottom: 12px;
+      font-size: 1rem;
+      display: block;
+    }
+
+    /* ▼▼▼ ボタンエリア ▼▼▼ */
+    .choice-area {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .btn-quiz {
+      padding: 20px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.4;
+    }
+    .btn-quiz:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transform: translateY(-2px);
+    }
+    .btn-quiz:active { transform: scale(0.98); }
+    
+    .btn-safe { 
+      background-color: #e0f2fe; 
+      color: #0284c7; 
+      border: 2px solid #bae6fd; 
+    }
+    .btn-phish { 
+      background-color: #fee2e2; 
+      color: #dc2626; 
+      border: 2px solid #fecaca; 
+    }
+  /* ===== 公式情報ボタン（右上） ===== */
+.official-btn{
+  position:absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 120;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 800;
+  font-size: 0.9rem;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.10);
+  transition: transform 0.12s, background 0.12s;
+}
+.official-btn:hover{ background:#f8fafc; transform: translateY(-1px); }
+.official-btn:active{ transform: translateY(0); }
+
+/* ===== 公式情報モーダル ===== */
+.official-overlay{
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.55);
+  z-index: 9999;
+}
+.official-overlay.show{ display:flex; }
+
+.official-modal{
+  width: min(560px, 92vw);
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.30);
+  border: 1px solid rgba(226,232,240,0.9);
+  overflow: hidden;
+}
+.official-head{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e5e7eb;
+}
+.official-head h3{
+  margin:0;
+  font-size: 1.05rem;
+  font-weight: 900;
+  color:#0f172a;
+}
+.official-x{
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 900;
+}
+.official-x:hover{ background:#f1f5f9; }
+
+.official-body{
+  padding: 14px 16px 8px;
+  color: #334155;
+  font-size: 0.98rem;
+  line-height: 1.6;
+}
+.official-kv{
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.official-line{
+  display:flex;
+  gap: 10px;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 6px 0;
+}
+.official-line .k{
+  color:#64748b;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.official-line .v{
+  text-align: right;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92rem;
+  color:#0f172a;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.official-note{
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #e5e7eb;
+}
+.official-note b{
+  display:block;
+  margin-bottom: 6px;
+  color:#0f172a;
+}
+.official-note ul{
+  margin: 0;
+  padding-left: 1.2em;
+}
+.official-note li{ margin: 6px 0; }
+
+.official-actions{
+  padding: 12px 16px 16px;
+}
+.official-close{
+  width: 100%;
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(99,102,241,0.28);
+}
+.official-close:hover{ background:#4f46e5; }
+
+</style>
+  <script src="./delivery_questions.js"></script>
+<script src="./scenario_config.js"></script>
+
+</head>
+<body>
+
+  <div class="deviceWrap">
+    <div class="device">
+
+      
+
+<!-- 公式情報ボタン（右上） -->
+<button id="officialBtn" class="official-btn" type="button" aria-haspopup="dialog" aria-controls="officialOverlay">
+  公式情報
+</button>
+
+<!-- 公式情報モーダル（クリックで開く） -->
+<div id="officialOverlay" class="official-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="official-modal" role="document">
+    <div class="official-head">
+      <h3>公式情報（確認用）</h3>
+      <button id="officialCloseX" class="official-x" type="button" aria-label="閉じる">×</button>
+    </div>
+    <div class="official-body" id="officialBody"></div>
+    <div class="official-actions">
+      <button id="officialCloseBtn" class="official-close" type="button">閉じる</button>
+    </div>
+  </div>
+</div>
+<div class="quiz-header">
+        <span class="quiz-badge">第1問 / 全10問</span>
+        <h2 style="margin: 15px 0 0 0; font-size: 1.8rem;">ワンタイムパスワードの通知が届いています。</h2>
+        <p style="color:#666; font-size:1rem; margin-top:5px;">自分でログインした直後の通知でした。</p>
+      </div>
+
+      <div class="image-row">
+        
+        <div id="feedbackOverlay" class="feedback-overlay">
+          <div id="fbIcon" class="fb-icon"></div>
+          <div id="fbText" class="fb-text"></div>
+
+          <div class="fb-modal" id="fbModal">
+            
+<h3 class="fb-modal-title">実は危険なサイトです</h3>
+<p class="fb-modal-desc">
+  <strong id="fbStrong">実際にアクセスして攻撃の手口を体験しましょう。</strong>
+  <br><span id="countdownText" style="display:none; color:#6b7280; font-size:0.9rem;"></span>
+</p>
+<button class="fb-btn-next" id="goSimBtn">詐欺サイトへ移動する</button>
+<button class="fb-btn-skip is-hidden" id="skipBtn">解説へ進む</button>
+          </div>
+        </div>
+
+        <div class="image-item">
+          <span class="img-label">▼ 受信一覧画面</span>
+          <img id="pvInbox" src="./iphone6.png" class="question-image" alt="受信一覧">
+        </div>
+
+        <div class="image-item">
+          <span class="img-label">▼ 詳細画面</span>
+          <img id="pvSms" src="./iphone6(2).png" class="question-image" alt="詳細画面">
+        </div>
+      </div>
+
+      <div class="choice-area">
+        <button class="btn-quiz btn-safe" onclick="choose('safe')">
+          <span>✅ 正規のメッセージ</span>
+          <span style="font-size:0.85rem; font-weight:normal; opacity:0.8; margin-top:4px;">(安全なので開く)</span>
+        </button>
+        
+        <button class="btn-quiz btn-phish" onclick="choose('phish')">
+          <span>❌ フィッシング詐欺</span>
+          <span style="font-size:0.85rem; font-weight:normal; opacity:0.8; margin-top:4px;">(危険なので無視する)</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+  function safeLog(type, target, meta) {
+    try {
+      if (window.SecLogger && typeof SecLogger.log === "function") {
+        SecLogger.log(type, target, meta);
+      }
+    } catch (e) {}
+  }
+
+  const params = new URLSearchParams(location.search);
+  const q = Number(params.get("q") || "1");
+
+
+  // ★追加：出題順を確定（ランダム・誤答優先）
+QuizFlow.ensureOrder(10, { adaptive: true });
+
+// ★追加：今いるフォルダ（例：/１問/）と q がズレてたら正しいフォルダへ移動
+const m = location.pathname.match(/\/([0-9０-９]+)問\//);
+const folderQ = m ? Number(toHankaku(m[1])) : null;
+
+if (folderQ && folderQ !== q) {
+  location.replace(`../${folderName(q)}/quiz_delivery.html?q=${q}`);
+}
+
+
+  // 正解データの取得（なければ phish を正解と仮定）
+  let correct = "phish";
+  try {
+    if (window.Delivery10 && typeof Delivery10.getQ === "function") {
+      correct = Delivery10.getQ(q).correct;
+    }
+  } catch (e) {}
+
+  // バッジ更新
+  const badge = document.querySelector(".quiz-badge");
+if (badge && window.QuizFlow && typeof QuizFlow.getPos === "function") {
+  const pos = QuizFlow.getPos(q) ?? q;  // 念のためフォールバック
+  badge.textContent = `第${pos}問 / 全10問`;
+}
+
+  // プレビュー表示設定
+  const pvInbox = document.getElementById("pvInbox");
+  const pvSms = document.getElementById("pvSms");
+  if (pvInbox && pvInbox.tagName === "IFRAME") pvInbox.src = `./sms_inbox_delivery.html?embed=1&q=${q}`;
+  if (pvSms && pvSms.tagName === "IFRAME") pvSms.src = `./sms_delivery.html?embed=1&q=${q}`;
+
+  safeLog("page_view", "quiz_delivery", { q, title: document.title });
+
+// ▼▼▼ 選択処理 ▼▼▼
+function choose(choice) {
+  // 正規(safe)が正解、フィッシング(phish)が不正解
+  const correct = "safe";
+  const isCorrect = (choice === correct);
+
+  // 連打防止
+  if (choose._locked) return;
+  choose._locked = true;
+
+  const overlay = document.getElementById("feedbackOverlay");
+  const icon = document.getElementById("fbIcon");
+  const text = document.getElementById("fbText");
+
+  if (!overlay || !icon || !text) {
+    choose._locked = false;
+    return;
+  }
+
+  // クラスをリセット
+  overlay.classList.remove("is-correct", "is-incorrect", "show", "show-modal");
+
+  // 表示切り替え
+  overlay.classList.add(isCorrect ? "is-correct" : "is-incorrect");
+  icon.textContent = isCorrect ? "⭕️" : "❌";
+  text.innerHTML = isCorrect
+    ? "正解！"
+    : "不正解...<br><span style='font-size:0.8em'>解説を確認しましょう</span>";
+
+  overlay.classList.add("show");
+
+  // ログ
+  if (window.QuizState) {
+    QuizState.setAnswer(q, isCorrect, choice, correct);
+  }
+  safeLog("decision", "quiz_answer", { q, choice, correct, is_correct: isCorrect });
+
+  // 正解・不正解にかかわらず解説へ
+  setTimeout(() => {
+    const routeParam = isCorrect ? "correct" : "wrong"; // 好きに。detected/failedでもOK
+    location.href = `./reveal_delivery.html?q=${q}&route=${routeParam}`;
+  }, 1500);
+}
+window.choose = choose;
+
+
+// ===== 公式情報ボタン（右上） =====
+(function () {
+  const btn = document.getElementById("officialBtn");
+  const overlay = document.getElementById("officialOverlay");
+  const body = document.getElementById("officialBody");
+  const closeBtn = document.getElementById("officialCloseBtn");
+  const closeX = document.getElementById("officialCloseX");
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      "\"": "&quot;",
+      "'": "&#39;"
+    }[c]));
+  }
+
+  function buildOfficialHtml(q) {
+    // ★Q1（宅配／詐欺）：ユーザー指定の公式情報
+    if (Number(q) === 1) {
+      return `
+        <div class="official-kv">
+          <div class="official-line"><span class="k">公式ドメイン</span><span class="v">minato-delivery.example/redelivery</span></div>
+        </div>
+      `;
+    }
+
+    // もし delivery_questions.js 側に official 情報を持たせる場合の拡張ポイント
+    try {
+      if (window.Delivery10 && typeof Delivery10.getQ === "function") {
+        const d = Delivery10.getQ(Number(q));
+        if (d && d.official) {
+          const dom = d.official.domain || "（未設定）";
+          const urlText = d.urlText || d.url || "（未設定）";
+          const reason = d.official.reason || "";
+          const tip = d.official.tip || "";
+          return `
+            <div class="official-kv">
+              <div class="official-line"><span class="k">公式ドメイン</span><span class="v">${escapeHtml(dom)}</span></div>
+              <div class="official-line"><span class="k">表示URL</span><span class="v">${escapeHtml(urlText)}</span></div>
+            </div>
+            ${reason ? `<div class="official-note"><b>どこが怪しい？</b><p style="margin:0;">${escapeHtml(reason)}</p></div>` : ""}
+            ${tip ? `<div class="official-note"><b>学習ポイント</b><p style="margin:0;">${escapeHtml(tip)}</p></div>` : ""}
+          `;
+        }
+      }
+    } catch (e) {}
+
+    return `<p style="margin:0;color:#64748b;">この問題の公式情報はまだ登録されていません。</p>`;
+  }
+
+  function open() {
+    if (!overlay) return;
+    overlay.classList.add("show");
+    overlay.setAttribute("aria-hidden", "false");
+    if (body) body.innerHTML = buildOfficialHtml(q);
+    try { if (window.SecLogger) SecLogger.log("click", "official_info_open", { q }); } catch (e) {}
+  }
+  function close() {
+    if (!overlay) return;
+    overlay.classList.remove("show");
+    overlay.setAttribute("aria-hidden", "true");
+    try { if (window.SecLogger) SecLogger.log("click", "official_info_close", { q }); } catch (e) {}
+  }
+
+  if (btn) btn.addEventListener("click", open);
+  if (closeBtn) closeBtn.addEventListener("click", close);
+  if (closeX) closeX.addEventListener("click", close);
+  if (overlay) overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && overlay && overlay.classList.contains("show")) close();
+  });
+})();
+</script>
+
+</body>
+</html>

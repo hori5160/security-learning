@@ -1,0 +1,1153 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>フィッシング体験（Web）</title>
+
+  <link rel="stylesheet" href="../../../assets/app.css" />
+  <script src="../../../assets/logger.js"></script>
+  <script src="../common/scenario_core.js"></script>
+  <script src="../common/delivery_questions.js"></script>
+  <script src="./scenario_config.js"></script>
+  <style>
+
+    /* =========================================
+       基本設定
+       ========================================= */
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      margin: 0;
+      background-color: #f0f0f0;
+    }
+
+    /* =========================================
+       スマホ外枠（deviceWrap, device, bezel）
+       ※受信トレイと同じデザイン
+       ========================================= */
+    .deviceWrap{
+      display:flex;
+      justify-content:center;
+      margin-top: 40px;
+    }
+    .device{
+      width:min(390px, 92vw);
+      aspect-ratio: 11 / 19.5;
+      border-radius: 42px;
+      padding: 8px;
+      background: linear-gradient(180deg, #2a2a2a, #313131);
+      border: 1px solid rgba(0,0,0,.85);
+      box-shadow:
+        0 18px 50px rgba(0,0,0,.45),
+        0 0 0 2px rgba(255,255,255,.06) inset;
+      position: relative;
+    }
+    .bezel{
+      height: 100%;
+      border-radius: 34px;
+      overflow:hidden;
+      border: 1px solid rgba(12, 38, 73, 0.25);
+      background: #ffffff; /* iOS背景は白 */
+      position: relative;
+    }
+    .notch{
+      position:absolute;
+      top:5px; left:50%;
+      transform: translateX(-50%);
+      width: 150px; height: 28px;
+      border-radius: 0 0 16px 16px;
+      background: rgba(2,6,23,.85);
+      z-index: 100;
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      pointer-events:none;
+    }
+    .spk{ width:60px; height:6px; border-radius:999px; background: rgba(255,255,255,.16); }
+    .cam{ width:10px; height:10px; border-radius:999px; background: rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.12); }
+
+    /* =========================================
+       画面内レイアウト（詳細画面）
+       ========================================= */
+    .smsScreen{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      background: #ffffff;
+      color:#000;
+      position: relative;
+    }
+
+    /* --- ステータスバー --- */
+    .statusbarReal{
+      height: 44px;
+      padding: 10px 24px 6px;
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      font-size: 14px;
+      font-weight: 600;
+      color: #000;
+      background: #fff; /* 半透明で下のコンテンツを透かすのが本物っぽいが、今回は白固定で安定させる */
+      z-index: 50;
+    }
+    .sbRight{ display:flex; gap:6px; align-items:center; }
+    .bat{
+      width:24px; height:11px; border-radius:3px;
+      border:1px solid #999;
+      position:relative;
+    }
+    .bat::after{
+      content:""; position:absolute; right:-4px; top:3px;
+      width:2px; height:4px; border-radius:1px; background: #999;
+    }
+    .bat i{
+      position:absolute; left:1px; top:1px; bottom:1px;
+      width:90%; border-radius:2px; background: #000; display:block;
+    }
+
+    /* --- iOS風ヘッダー --- */
+    .iosHeader {
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(10px);
+      padding: 0 8px 10px;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      z-index: 40;
+    }
+
+    /* 左上の戻るボタンエリア */
+    .navLeft {
+      position: absolute;
+      top: 6px;
+      left: 8px;
+      display: flex;
+      align-items: center;
+      color: #007AFF;
+      cursor: pointer;
+      font-size: 17px;
+    }
+    .backIcon {
+      font-size: 24px;
+      font-weight: 300;
+      margin-right: 4px;
+      margin-top: -2px;
+    }
+    .unreadBadge {
+      background: #000; /* 未読数バッジは黒 */
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 99px;
+    }
+
+    /* 中央のアバターと情報 */
+    .headerProfile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 2px;
+    }
+    .profileAvatar {
+      width: 48px; height: 48px;
+      background: #9ca3af; /* デフォルトグレー */
+      border-radius: 50%;
+      margin-bottom: 6px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .profileAvatar {
+      width: 48px; height: 48px;
+      background: #9ca3af;
+      border-radius: 50%;
+      margin-bottom: 6px;
+      /* imgタグを中心に配置して切り抜く設定 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    
+    .profileAvatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover; /* 枠に合わせてトリミング */
+    }
+
+    .profileName {
+      font-size: 12px;
+      color: #000;
+      font-weight: 400;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .profileChevron {
+      font-size: 10px;
+      color: #3c3c43;
+      opacity: 0.6;
+      font-weight: 700;
+    }
+
+    /* --- メッセージスレッド --- */
+    .thread{
+      flex:1;
+      overflow-y:auto;
+      padding: 20px 16px;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .dateLabel {
+      text-align: center;
+      color: #8e8e93;
+      font-size: 11px;
+      font-weight: 500;
+      margin-bottom: 16px;
+      line-height: 1.4;
+    }
+
+    /* 左側の吹き出し（受信） */
+    .bubbleRow {
+      display: flex;
+      margin-bottom: 20px;
+      position: relative;
+    }
+    /* iOSのしっぽ（簡易再現） */
+    .bubbleRow::before {
+      content: "";
+      position: absolute;
+      bottom: 0px;
+      left: -6px;
+      width: 20px; height: 20px;
+      background: #e9e9eb;
+      border-bottom-right-radius: 16px;
+      z-index: 0;
+      clip-path: polygon(0 100%, 100% 100%, 100% 0); 
+    }
+    /* 実際にはclip-pathだと難しいので、シンプルな角丸で対応するか、
+       画像に近づけるなら擬似要素で少し工夫する。
+       今回は「左下に少し飛び出た」雰囲気を出すため、単に左下のborder-radiusを小さくする手法をとる。 */
+    
+    .bubble {
+      background: #e9e9eb; /* iOS Gray */
+      color: #000;
+      padding: 10px 14px;
+      border-radius: 18px;
+      border-bottom-left-radius: 4px; /* しっぽの根元 */
+      font-size: 16px;
+      line-height: 1.4;
+      max-width: 75%;
+      position: relative;
+      word-wrap: break-word;
+    }
+    /* しっぽの補完 */
+    .bubble::before {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: -8px;
+      width: 16px; height: 16px;
+      background: #e9e9eb;
+      border-bottom-right-radius: 20px;
+      clip-path: inset(50% 0 0 50%); /* 右下だけ残す的な */
+      /* 完全再現はCSSが複雑になるため、ここでは雰囲気に留める */
+      display: none; 
+    }
+
+    .bubble a {
+      color: #007AFF;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    /* --- 入力エリア（フッター） --- */
+    .composer {
+      padding: 10px 12px 30px; /* 下部はHomeIndicator用に広めに */
+      background: #f9f9f9; /* 入力エリアの背景は少しグレー */
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-top: 1px solid #d1d1d6;
+    }
+
+    .plusBtn {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: #d1d1d6;
+      color: #fff;
+      font-size: 24px;
+      font-weight: 300;
+      display: grid;
+      place-items: center;
+      padding-bottom: 2px;
+      flex-shrink: 0;
+    }
+    
+    .inputPill {
+      flex: 1;
+      height: 36px;
+      border-radius: 18px;
+      border: 1px solid #d1d1d6;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 16px;
+      color: #c7c7cc; /* placeholder color */
+    }
+
+    .voiceIcon {
+      width: 24px;
+      display: flex;
+      justify-content: center;
+      gap: 3px;
+      align-items: center;
+      height: 24px;
+    }
+    .voiceBar {
+      width: 2px;
+      background: #000;
+      border-radius: 1px;
+    }
+
+    /* ホームバー */
+    .homeIndicator{
+      position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+      width: 130px; height: 5px;
+      background: #000;
+      border-radius: 10px;
+      z-index: 100;
+    }
+
+    /* メニューオーバーレイ（ロジック用） */
+    .sheetOverlay{
+      position:absolute; inset:0;
+      background: rgba(0,0,0,.4);
+      display:none;
+      align-items:flex-end;
+      z-index: 200;
+    }
+    .sheetOverlay.show{ display:flex; }
+    .sheet{
+      width: 96%;
+      margin: 0 auto 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sheetGroup {
+      background: rgba(245,245,245,0.9);
+      backdrop-filter: blur(20px);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .sheetBtn {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+      padding: 16px;
+      font-size: 18px;
+      color: #007AFF;
+      text-align: center;
+      cursor: pointer;
+    }
+    .sheetBtn:last-child { border-bottom: none; }
+    .sheetBtn.bold { font-weight: 600; }
+    .sheetBtn.cancel {
+      background: #fff;
+      border-radius: 14px;
+      font-weight: 600;
+      color: #007AFF;
+    }
+    .sheetMessage {
+      padding: 12px;
+      text-align: center;
+      font-size: 13px;
+      color: #8e8e93;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+
+  
+
+    /* ===== Web画面（Safari風）を端末内に収める ===== */
+    .webScreen{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      background:#ffffff;
+      color:#000;
+      position: relative;
+      min-height: 0;
+    }
+    .safariBar{
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      padding: 6px 10px 10px;
+      display:flex;
+      flex-direction:column;
+      gap: 6px;
+      z-index: 40;
+      flex: 0 0 auto;
+    }
+    .safariTopRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      padding: 0 4px;
+      color: #007AFF;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .safariCenter{ flex:1; display:flex; justify-content:center; color:#111827; font-weight:600; }
+    .safariAddr{
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      width: 100%;
+      background: rgba(60,60,67,0.10);
+      border: 1px solid rgba(60,60,67,0.12);
+      border-radius: 14px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color:#111827;
+      box-sizing:border-box;
+    }
+    .lockDot{ width: 8px; height: 8px; border-radius: 999px; background:#10b981; box-shadow: 0 0 0 2px rgba(16,185,129,0.18); flex-shrink:0; }
+    .addrText{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex:1; }
+    .safariPill{ font-size: 11px; color:#6b7280; padding-left: 4px; }
+
+    .webScroll{
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      background:#fff;
+      padding: 14px 16px 52px;
+      box-sizing: border-box;
+    }
+
+    /* ===== フォーム（スマホで入力しやすく） ===== */
+    .form-meta{ font-size: 12px; color:#6b7280; margin-bottom: 10px; }
+    .form-title{ font-size: 18px; font-weight: 900; color:#111827; margin: 6px 0 10px; }
+    .description{ font-size: 13px; color:#374151; margin: 0 0 10px; line-height: 1.6; }
+    .warning-text{ font-size: 12px; font-weight: 800; color:#b91c1c; margin: 0 0 12px; }
+
+    .input-group{ margin: 14px 0; }
+    .input{
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      background: #fff;
+      color: #111827;
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+      font-size: 16px;
+      line-height: 1.2;
+    }
+    .input:focus{
+      border-color: rgba(59,130,246,0.9);
+      box-shadow: 0 0 0 4px rgba(59,130,246,0.15);
+    }
+    .error-msg{
+      display:none;
+      margin-top: 6px;
+      font-size: 12px;
+      color: #ef4444;
+      line-height: 1.2;
+    }
+    .error-msg.show{ display:block; }
+    .input.error{
+      border-color: rgba(239,68,68,0.95);
+      background: rgba(239,68,68,0.05);
+    }
+    .btn-submit{
+      width: 100%;
+      border: none;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-size: 16px;
+      font-weight: 900;
+      background: #2563eb;
+      color: #fff;
+      box-shadow: 0 10px 24px rgba(37,99,235,0.25);
+      cursor:pointer;
+      margin-top: 6px;
+    }
+    .btn-submit:active{
+      transform: translateY(1px);
+      box-shadow: 0 7px 18px rgba(37,99,235,0.22);
+    }
+
+    /* ===== 送信中ポップ（端末内で完結） ===== */
+    .overlay{
+      position:absolute;
+      inset:0;
+      display:none;
+      place-items:center;
+      background: rgba(17,24,39,0.45);
+      z-index: 999;
+      opacity: 0;
+      transition: opacity .15s ease;
+    }
+    .overlay.show{
+      display:grid;
+      opacity: 1;
+    }
+    .modal{
+      width: min(320px, 86%);
+      background: #fff;
+      border: 2px solid rgba(0,0,0,0.12);
+      border-radius: 16px;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.22);
+      overflow:hidden;
+      color:#111827;
+    }
+    .modal-title{
+      padding: 14px 14px 12px;
+      font-size: 16px;
+      font-weight: 900;
+      display:flex;
+      gap: 8px;
+      align-items:center;
+    }
+    .modal-body{
+      padding: 12px 14px 14px;
+      border-top: 1px solid rgba(0,0,0,0.10);
+      font-size: 13px;
+      color:#374151;
+      line-height: 1.6;
+    }
+    .btn-reveal{
+      display:block;
+      margin: 12px 14px 14px;
+      text-align:center;
+      background:#ef4444;
+      color:#fff;
+      text-decoration:none;
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-weight: 900;
+    }
+    .shake{ animation: shake .35s linear; }
+    @keyframes shake{
+      0%{ transform: translateX(0); }
+      20%{ transform: translateX(-6px); }
+      40%{ transform: translateX(6px); }
+      60%{ transform: translateX(-4px); }
+      80%{ transform: translateX(4px); }
+      100%{ transform: translateX(0); }
+    }
+    .loading-note{
+      margin-top: 6px;
+      font-size: 12px;
+      color:#6b7280;
+    }
+
+    /* 入力安定化 */
+    html, body{ -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    .webScreen, .webScreen *{ -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+    /* --- スマホ枠内用 Safariバー --- */
+
+/* スマホ画面の枠（親要素）の設定 */
+.screen {
+  position: relative; /* 中身の配置基準にする */
+  padding-bottom: 60px !important; /* バーの分だけ余白を確保して、コンテンツが隠れないようにする */
+  overflow: hidden; /* はみ出し防止 */
+}
+
+/* バー本体 */
+.safari-bottom-bar {
+  position: absolute; /* 画面に対して絶対配置 */
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 44px;
+  background-color: #f8f8f8; /* Safariっぽいグレー */
+  border-top: 1px solid #b2b2b2;
+  
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  
+  padding: 0 12px;
+  box-sizing: border-box;
+  z-index: 100; /* コンテンツより手前に表示 */
+  
+  /* 念のためフォント設定 */
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* アイコン共通 */
+.safari-icon {
+  width: 20px;
+  height: 20px;
+  color: #007aff; /* iOS Blue */
+  cursor: pointer;
+}
+.safari-icon.disabled { color: #c7c7cc; cursor: default; }
+
+/* グループ分け */
+.safari-nav-group, .safari-action-group {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+/* URL表示エリア */
+.safari-address-fake {
+  flex-grow: 1;
+  text-align: center;
+  font-size: 12px;
+  color: #000;
+  font-weight: 500;
+  margin: 0 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  
+  /* 鍵アイコンなどをつける場合の余地 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+}
+
+/* === 学習用：ウォーターマーク（常時表示） === */
+.webScreen::after{
+  content:"学習用の疑似画面";
+  position:absolute;
+  top:86px; right:10px;
+  font-size:11px;
+  color: rgba(17,24,39,.45);
+  background: rgba(255,255,255,.72);
+  border: 1px solid rgba(0,0,0,.08);
+  padding: 6px 10px;
+  border-radius: 999px;
+  z-index: 60;
+  pointer-events:none;
+}
+
+/* === 通信会社っぽいヘッダー/カード/UI === */
+.telcoHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(37,99,235,.10), rgba(37,99,235,.04));
+  border:1px solid rgba(37,99,235,.18);
+  margin-bottom: 12px;
+}
+.telcoBrand{
+  display:flex; align-items:center; gap:10px;
+  min-width:0;
+}
+.telcoLogo{
+  width:34px; height:34px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb, #60a5fa);
+  box-shadow: 0 10px 22px rgba(37,99,235,.18);
+  flex:0 0 auto;
+}
+.telcoName{
+  font-weight:900; color:#111827;
+  line-height:1.1;
+}
+.telcoSub{
+  font-size:11px; color:#6b7280;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.telcoBadge{
+  font-size:11px;
+  font-weight:900;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(16,185,129,.10);
+  border:1px solid rgba(16,185,129,.25);
+  color:#065f46;
+  flex:0 0 auto;
+}
+
+.summaryCard{
+  background:#fff;
+  border:1px solid rgba(0,0,0,0.08);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.06);
+  margin-bottom: 12px;
+}
+.summaryRow{
+  display:flex; justify-content:space-between; align-items:baseline;
+  gap:10px;
+}
+.summaryLabel{ font-size:12px; color:#6b7280; font-weight:700; }
+.summaryValue{ font-size:18px; font-weight:900; color:#111827; }
+.summaryMeta{ margin-top:6px; font-size:12px; color:#374151; line-height:1.55; }
+
+.formSectionTitle{
+  font-size:13px;
+  font-weight:900;
+  color:#111827;
+  margin: 10px 0 6px;
+}
+.helperNote{
+  font-size:11px; color:#6b7280;
+  margin: 0 0 10px;
+}
+.smallLink{
+  font-size:12px; color:#2563eb; text-decoration:underline;
+}
+
+  </style>
+</head>
+
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <div class="btitle">スミッシング</div>
+          <div class="bmeta">Web画面の操作</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card" style="padding-bottom: 55px;">
+      <div class="kv">
+        <span class="badge warn">現在の状況</span>
+        <span class="small"><h3>偽サイトが開きました。フォームに入力するとどうなるでしょうか？</h3></span>
+      </div>
+      <div class="hr"></div>
+
+      <div class="deviceWrap">
+        <div class="device">
+          <div class="notch"><span class="spk"></span><span class="cam"></span></div>
+
+          <div class="bezel">
+            <div class="webScreen" id="webScreen">
+              <!-- statusbar は sms_delivery と同じ -->
+              <div class="statusbarReal">
+                <div id="timeText">14:03</div>
+                <div class="sbRight">
+                  <span>4G</span>
+                  <span class="bat"><i></i></span>
+                  <span style="font-size:12px">95</span>
+                </div>
+
+                <div class="safari-bottom-bar">
+        <div class="safari-nav-group">
+          <svg class="safari-icon disabled" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          <svg class="safari-icon disabled" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </div>
+
+        <div class="safari-address-fake">
+          <span style="font-size:10px">🔒</span> https://b-payments.example/confirm
+        </div>
+
+        <div class="safari-action-group">
+          <svg class="safari-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+          <svg class="safari-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+          <svg class="safari-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+        </div>
+      </div>
+      </div>
+
+              <div class="safariBar">
+                <div class="safariTopRow">
+                  <div style="opacity:.65;">‹</div>
+                  <div class="safariCenter">Safari</div>
+                  <div style="opacity:.65;">⟳</div>
+                </div>
+                
+              </div>
+
+              <div class="webScroll">
+  <!-- 学習用：通信会社風（架空ブランド） -->
+  <div class="telcoHeader">
+    <div class="telcoBrand">
+      <div class="telcoLogo"></div>
+      <div style="min-width:0;">
+        <div class="telcoName">〇〇通信</div>
+        <div class="telcoSub">料金・お支払い（学習用の疑似画面）</div>
+      </div>
+    </div>
+    <div class="telcoBadge">保護中</div>
+  </div>
+
+  <div class="summaryCard">
+    <div class="summaryRow">
+      <div>
+        <div class="summaryLabel">今月のご請求（概算）</div>
+        <div class="summaryValue">¥ 9,550</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="summaryLabel">お支払い期限</div>
+        <div class="summaryValue" style="font-size:14px;">本日 23:59</div>
+      </div>
+    </div>
+    <div class="summaryMeta">
+      未払いの可能性があるため確認が必要です。<br>
+      ※これは学習用の疑似画面で、入力は保存されません。
+    </div>
+  </div>
+
+  <div class="formSectionTitle">お支払い情報の確認</div>
+  <p class="helperNote">
+    通信会社を装う手口では、ログイン情報やカード情報の入力を促します。<br>
+    <span class="smallLink">公式アプリ/ブックマークから確認</span>が安全です。
+  </p>
+
+  <div class="input-group">
+    <input class="input" id="account" type="text" placeholder="ログインID（メール/電話番号）" data-next="pass" autocomplete="off">
+    <div class="error-msg">ここが入力されていません</div>
+  </div>
+  <div class="input-group">
+    <input class="input" id="pass" type="password" placeholder="パスワード" data-next="card" autocomplete="off">
+    <div class="error-msg">ここが入力されていません</div>
+  </div>
+
+  <div class="formSectionTitle">お支払い方法</div>
+  <div class="input-group">
+    <input class="input" id="card" type="text" placeholder="カード番号（例: 1234 5678 9012 3456）" data-next="exp" inputmode="numeric" maxlength="19" autocomplete="off">
+    <div class="error-msg">ここが入力されていません</div>
+  </div>
+  <div class="input-group">
+    <input class="input" id="exp" type="text" placeholder="有効期限（MM/YY）" data-next="cvv" inputmode="numeric" maxlength="5" autocomplete="off">
+    <div class="error-msg">ここが入力されていません</div>
+  </div>
+  <div class="input-group">
+    <input class="input" id="cvv" type="password" placeholder="セキュリティコード（CVV）" inputmode="numeric" maxlength="4" autocomplete="off">
+    <div class="error-msg">ここが入力されていません</div>
+  </div>
+
+  <button id="sendBtn" type="button" class="btn-submit">支払い手続きを進める</button>
+</div>
+
+
+              <div class="homeIndicator"></div>
+
+              <div class="overlay" id="overlay">
+    <div class="modal">
+      <div class="modal-title">
+        <span>⚠</span> カード情報を入力してしまいました！
+      </div>
+      <div class="modal-body">
+        本物の攻撃では、入力したカード情報が不正利用される可能性があるので注意が必要です。
+      </div>
+      <a class="btn-reveal" id="goRevealBtn" href="./reveal_delivery.html?route=phished">
+        振り返りへ
+      </a>
+    </div>
+  </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+try { SecLogger.log("page_view", "phish_delivery", { title: document.title }); } catch(e){}
+    const params = new URLSearchParams(location.search);
+    const q = params.get("q") || "1";
+    const goBtn = document.getElementById("goRevealBtn");
+    if (goBtn) { goBtn.href = `./reveal_delivery.html?route=phished&q=${encodeURIComponent(q)}`; }
+
+    // ===== SC（scenario_config.js）がある場合：表示文面を差し替え =====
+    try {
+      if (window.SC && SC.phish) {
+        const meta = document.querySelector(".form-meta");
+        const title = document.querySelector(".form-title");
+        const desc = document.querySelector(".description");
+        const warn = document.querySelector(".warning-text");
+        const btn = document.getElementById("sendBtn");
+        const modalTitle = document.querySelector(".modal-title");
+        const modalBody = document.querySelector(".modal-body");
+
+        if (meta && SC.phish.meta) meta.textContent = SC.phish.meta;
+        if (title && SC.phish.title) title.textContent = SC.phish.title;
+        if (desc && SC.phish.description) desc.textContent = SC.phish.description;
+        if (warn && SC.phish.warning) warn.textContent = SC.phish.warning;
+        if (btn && SC.phish.button) btn.textContent = SC.phish.button;
+        if (modalTitle && SC.phish.modalTitle) modalTitle.innerHTML = `<span>⚠</span> ${SC.phish.modalTitle.replace("⚠","").trim()}`;
+        if (modalBody && SC.phish.modalBody) modalBody.textContent = SC.phish.modalBody;
+      }
+    } catch(e) {}
+
+    
+    // ▼▼▼ 入力補助（整形）＆ Enterキー制御 ▼▼▼
+    const els = {
+      account: document.getElementById("account"),
+      pass: document.getElementById("pass"),
+      card: document.getElementById("card"),
+      exp: document.getElementById("exp"),
+      cvv: document.getElementById("cvv"),
+      sendBtn: document.getElementById("sendBtn"),
+    };
+
+    function setError(input, message){
+      if (!input) return;
+      input.classList.add("error");
+      const msg = input.parentElement?.querySelector(".error-msg");
+      if (msg){
+        msg.textContent = message || "入力に誤りがあります";
+        msg.classList.add("show");
+      }
+    }
+    function clearError(input){
+      if (!input) return;
+      input.classList.remove("error");
+      const msg = input.parentElement?.querySelector(".error-msg");
+      if (msg) msg.classList.remove("show");
+    }
+
+    // --- 整形：カード（16桁 → 4桁区切り） ---
+    function formatCard(){
+      const input = els.card;
+      if (!input) return;
+      const digits = input.value.replace(/\D/g, "").slice(0, 16);
+      const spaced = digits.replace(/(\d{4})(?=\d)/g, "$1 ");
+      input.value = spaced;
+    }
+
+    // --- 整形：有効期限（MMYY → MM/YY） ---
+    function formatExp(){
+      const input = els.exp;
+      if (!input) return;
+      const digits = input.value.replace(/\D/g, "").slice(0, 4);
+      const mm = digits.slice(0, 2);
+      const yy = digits.slice(2, 4);
+      input.value = (yy.length > 0) ? `${mm}/${yy}` : mm;
+    }
+
+    // --- 整形：CVV（数字のみ） ---
+    function formatCvv(){
+      const input = els.cvv;
+      if (!input) return;
+      input.value = input.value.replace(/\D/g, "").slice(0, 4);
+    }
+
+    // --- バリデーション（学習用：形式のみチェック） ---
+    function validateAccount(show){
+      const v = (els.account?.value || "").trim();
+      if (!v){
+        if (show) setError(els.account, "ログインIDを入力してください");
+        return false;
+      }
+      clearError(els.account);
+      return true;
+    }
+    function validatePass(show){
+      const v = (els.pass?.value || "").trim();
+      if (!v){
+        if (show) setError(els.pass, "パスワードを入力してください");
+        return false;
+      }
+      clearError(els.pass);
+      return true;
+    }
+    function validateCard(show){
+      const digits = (els.card?.value || "").replace(/\D/g, "");
+      if (digits.length === 0){
+        if (show) setError(els.card, "カード番号を入力してください");
+        return false;
+      }
+      if (digits.length !== 16){
+        if (show) setError(els.card, "カード番号は16桁で入力してください");
+        return false;
+      }
+      clearError(els.card);
+      return true;
+    }
+    function validateExp(show){
+      const v = (els.exp?.value || "").trim();
+      if (!v){
+        if (show) setError(els.exp, "有効期限を入力してください");
+        return false;
+      }
+      const m = v.match(/^(\d{2})\/(\d{2})$/);
+      if (!m){
+        if (show) setError(els.exp, "MM/YY形式で入力してください");
+        return false;
+      }
+      const mm = Number(m[1]);
+      if (!(mm >= 1 && mm <= 12)){
+        if (show) setError(els.exp, "月（MM）は01〜12で入力してください");
+        return false;
+      }
+      clearError(els.exp);
+      return true;
+    }
+    function validateCvv(show){
+      const digits = (els.cvv?.value || "").replace(/\D/g, "");
+      if (digits.length === 0){
+        if (show) setError(els.cvv, "セキュリティコードを入力してください");
+        return false;
+      }
+      if (!(digits.length === 3 || digits.length === 4)){
+        if (show) setError(els.cvv, "CVCは3〜4桁で入力してください");
+        return false;
+      }
+      clearError(els.cvv);
+      return true;
+    }
+
+    function validateAll(show){
+      const ok =
+        validateAccount(show) &&
+        validatePass(show) &&
+        validateCard(show) &&
+        validateExp(show) &&
+        validateCvv(show);
+      return ok;
+    }
+
+    function updateBtnState(){
+      const sendBtn = document.getElementById("sendBtn");
+if (sendBtn) {
+  sendBtn.disabled = false;
+  sendBtn.style.cursor = "pointer";
+  sendBtn.style.pointerEvents = "auto";
+}
+
+    }
+
+    // 入力イベント（整形 + 状態更新）
+    if (els.card){
+      els.card.addEventListener("input", () => { formatCard(); updateBtnState(); });
+      els.card.addEventListener("blur", () => { validateCard(true); updateBtnState(); });
+    }
+    if (els.exp){
+      els.exp.addEventListener("input", () => { formatExp(); updateBtnState(); });
+      els.exp.addEventListener("blur", () => { validateExp(true); updateBtnState(); });
+    }
+    if (els.cvv){
+      els.cvv.addEventListener("input", () => { formatCvv(); updateBtnState(); });
+      els.cvv.addEventListener("blur", () => { validateCvv(true); updateBtnState(); });
+    }
+    if (els.account){
+      els.account.addEventListener("input", () => { clearError(els.account); updateBtnState(); });
+      els.account.addEventListener("blur", () => { validateAccount(true); updateBtnState(); });
+    }
+    if (els.pass){
+      els.pass.addEventListener("input", () => { clearError(els.pass); updateBtnState(); });
+      els.pass.addEventListener("blur", () => { validatePass(true); updateBtnState(); });
+    }
+
+    // Enterキー：次の入力へ
+    document.querySelectorAll('input').forEach(input => {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const nextId = input.dataset.next;
+          if (nextId) {
+            const nextEl = document.getElementById(nextId);
+            if (nextEl && nextEl.tagName !== 'BUTTON') nextEl.focus();
+          }
+        }
+      });
+    });
+
+    // 初期状態：未入力なので無効化
+    updateBtnState();
+
+    // ▼▼▼ 送信ボタンクリック時（全項目チェック → 疑似送信） ▼▼▼
+    document.getElementById("sendBtn").addEventListener("click", () => {
+
+      // ここで“必須 & 形式”を最終チェック（未達なら進ませない）
+      const ok = validateAll(true);
+      updateBtnState();
+      if (!ok) return;
+
+      // --- 以下、すべて入力された場合の処理 ---
+      const cardDigits = (els.card.value || "").replace(/\D/g, "");
+      const expText = (els.exp.value || "");
+      const cvvDigits = (els.cvv.value || "").replace(/\D/g, "");
+
+      try {
+        SecLogger.log("decision", "phished", {
+          q,
+          account_len: (els.account.value || "").length,
+          pass_len: (els.pass.value || "").length,
+          card_digits: cardDigits.length,
+          exp: expText,
+          cvv_digits: cvvDigits.length
+        });
+      } catch(e){}
+
+      const overlay = document.getElementById("overlay");
+      const modal = overlay.querySelector('.modal');
+
+      // ★送信中ポップ（枠付き）を表示 → 結果画面へ遷移
+      const modalTitleEl = overlay.querySelector('.modal-title');
+      const modalBodyEl  = overlay.querySelector('.modal-body');
+      const revealBtn    = document.getElementById('goRevealBtn');
+
+      // 表示を「送信中」に切り替え
+      modal.classList.add('is-loading');
+      if (modalTitleEl) modalTitleEl.innerHTML = '<span>⏳</span> 送信中…';
+      if (modalBodyEl)  modalBodyEl.innerHTML  = '入力内容を確認しています…<br>しばらくお待ちください。<div class="loading-note">※学習用の疑似送信です</div>';
+      if (revealBtn) revealBtn.style.display = 'none';
+
+      overlay.classList.add("show");
+      modal.classList.add("shake");
+      setTimeout(() => { modal.classList.remove("shake"); }, 400);
+
+      // 少し待って結果画面へ（学習用）
+      setTimeout(() => {
+        location.href = `./phish_result_delivery.html?route=phished&q=${encodeURIComponent(q)}`;
+      }, 900);
+    });
+
+
+    // Safariアドレス表示（SCがあればそれ優先）
+    try {
+      const params = new URLSearchParams(location.search);
+      const q = Number(params.get("q") || "1");
+      const addrEl = document.getElementById("addrText");
+      if (addrEl) {
+        if (window.SC && SC.sms && SC.sms.urlText) addrEl.textContent = SC.sms.urlText;
+        else if (window.Delivery10 && typeof Delivery10.getQ === "function") {
+          const d = Delivery10.getQ(q);
+          if (d && d.urlText) addrEl.textContent = d.urlText;
+        }
+      }
+    } catch(e) {}
+
+    // 時計（毎秒更新しない：入力が安定）
+    try {
+      function updateClock() {
+        const d = new Date();
+        const hh = String(d.getHours()).padStart(2,"0");
+        const mm = String(d.getMinutes()).padStart(2,"0");
+        const t = document.getElementById("timeText");
+        if (t) {
+          const next = `${hh}:${mm}`;
+          if (t.textContent !== next) t.textContent = next;
+        }
+      }
+      updateClock();
+      setInterval(updateClock, 30000);
+    } catch(e) {}
+
+    
+  </script>
+</body>
+</html>

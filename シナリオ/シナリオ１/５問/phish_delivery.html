@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>カードセキュリティアップグレード</title>
+  <link rel="stylesheet" href="../../../assets/app.css" />
+  <script src="../../../assets/logger.js"></script>
+  <script src="../common/scenario_core.js"></script>
+
+  <style>
+    /* =================================================
+       phish_delivery を sms_delivery と同じ“端末UI”に揃える
+       （外枠/配色/余白の設計を合わせる）
+       ================================================= */
+
+    *{ box-sizing:border-box; }
+    body{
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      margin:0;
+      background-color:#f0f0f0;
+    }
+
+    /* ===== スマホ外枠（sms_delivery と同じ） ===== */
+    .deviceWrap{
+      display:flex;
+      justify-content:center;
+      margin-top: 40px;
+    }
+    .device{
+      width:min(390px, 92vw);
+      aspect-ratio: 11 / 19.5;
+      border-radius: 42px;
+      padding: 8px;
+      background: linear-gradient(180deg, #2a2a2a, #313131);
+      border: 1px solid rgba(0,0,0,.85);
+      box-shadow:
+        0 18px 50px rgba(0,0,0,.45),
+        0 0 0 2px rgba(255,255,255,.06) inset;
+      position: relative;
+    }
+    .bezel{
+      height: 100%;
+      border-radius: 34px;
+      overflow:hidden;
+      border: 1px solid rgba(12, 38, 73, 0.25);
+      background: #ffffff;
+      position: relative;
+    }
+    .notch{
+      position:absolute;
+      top:5px; left:50%;
+      transform: translateX(-50%);
+      width: 150px; height: 28px;
+      border-radius: 0 0 16px 16px;
+      background: rgba(2,6,23,.85);
+      z-index: 100;
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      pointer-events:none;
+    }
+    .spk{ width:60px; height:6px; border-radius:999px; background: rgba(255,255,255,.16); }
+    .cam{ width:10px; height:10px; border-radius:999px; background: rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.12); }
+
+    /* ===== 画面（ブラウザ風） ===== */
+    .browserScreen{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      background:#fff;
+      color:#000;
+      position:relative;
+    }
+
+    /* --- sms_delivery と同じステータスバー --- */
+    .statusbarReal{
+      height: 44px;
+      padding: 10px 24px 6px;
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      font-size: 14px;
+      font-weight: 600;
+      color: #000;
+      background: #fff;
+      z-index: 50;
+    }
+    .sbRight{ display:flex; gap:6px; align-items:center; }
+    .bat{
+      width:24px; height:11px; border-radius:3px;
+      border:1px solid #999;
+      position:relative;
+    }
+    .bat::after{
+      content:""; position:absolute; right:-4px; top:3px;
+      width:2px; height:4px; border-radius:1px; background: #999;
+    }
+    .bat i{
+      position:absolute; left:1px; top:1px; bottom:1px;
+      width:90%; border-radius:2px; background: #000; display:block;
+    }
+
+    /* --- サイトのヘッダー（黒帯：写真の雰囲気） --- */
+    .siteTop{
+      background:#0b0f19;
+      color:#fff;
+      padding: 14px 14px 10px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .mcLogo{ display:flex; align-items:center; gap:10px; }
+    .mcMark{ position:relative; width: 40px; height: 22px; }
+    .mcMark:before, .mcMark:after{ content:""; position:absolute; top:0; width: 22px; height:22px; border-radius:50%; opacity:.95; }
+    .mcMark:before{ left:0; background:#b8e783; }
+    .mcMark:after{ right:0; background:#d58ccd; mix-blend-mode: screen; }
+    .mcBrand{ font-weight: 800; letter-spacing:.3px; }
+
+    .menuIcon{ width: 24px; height: 18px; display:flex; flex-direction:column; justify-content:space-between; opacity:.9; }
+    .menuIcon span{ height:2px; background:rgba(255,255,255,.85); border-radius:2px; }
+
+    /* --- 背景/ヒーロー --- */
+    .siteBody{
+      flex:1;
+      position:relative;
+      background: linear-gradient(180deg, #0b0f19 0%, #0b0f19 25%, #111827 100%);
+      overflow:hidden;
+    }
+    .hero{
+      height: 210px;
+      background:
+        radial-gradient(ellipse at 30% 30%, rgba(239,68,68,.20), transparent 55%),
+        radial-gradient(ellipse at 70% 25%, rgba(245,158,11,.18), transparent 58%),
+        linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,0));
+      filter: saturate(1.1);
+    }
+
+    /* ===== Step1: ポップアップ ===== */
+    .popLayer{ position:absolute; inset: 0; display:flex; align-items:center; justify-content:center; padding: 18px; }
+    .popCard{ background:#fff; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.35); width: min(340px, 92%); padding: 22px 18px; text-align:center; }
+    .popTitle{ font-size: 22px; font-weight: 900; margin: 6px 0 14px; }
+    .popText{ font-size: 15px; color:#374151; line-height: 1.7; margin: 0 0 18px; }
+    .popBtn{ width:100%; border:none; border-radius: 10px; padding: 14px 10px; font-size: 16px; font-weight: 800; background:#2563eb; color:#fff; cursor:pointer; }
+    .popBtn:hover{ filter: brightness(0.96); }
+    .popNote{ margin-top: 12px; font-size: 13px; color:#6b7280; }
+
+    /* ===== Step2: 入力フォーム（写真③の雰囲気） ===== */
+    .formWrap{
+      position:absolute;
+      inset: 0;
+      display:none;
+      background:#fff;
+      overflow:auto;
+      padding: 18px 16px 110px;
+    }
+    .formTitle{ font-size: 22px; font-weight: 900; text-align:center; margin: 10px 0 10px; }
+    .formSub{ text-align:center; color:#6b7280; font-size: 13px; margin: 0 0 14px; }
+    .brandRow{ display:flex; gap: 8px; justify-content:center; flex-wrap:wrap; margin: 10px 0 14px; }
+    .brandPill{ font-size: 11px; padding: 4px 10px; border-radius: 999px; border: 1px solid #e5e7eb; color:#374151; background:#f9fafb; }
+
+    .field{ margin: 12px 0; }
+    .label{ font-size: 13px; font-weight: 800; color:#374151; margin-bottom: 6px; }
+    .input{
+      width:100%;
+      padding: 14px 12px;
+      border-radius: 10px;
+      border:1px solid #e5e7eb;
+      background:#fff;
+      font-size: 16px;
+      outline:none;
+    }
+    .input:focus{ border-color:#93c5fd; box-shadow: 0 0 0 4px rgba(147,197,253,.35); }
+    .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .submit{
+      margin-top: 18px;
+      width: 100%;
+      background:#3b82f6;
+      color:#fff;
+      border:none;
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 18px;
+      font-weight: 900;
+      cursor:pointer;
+    }
+    .submit:hover{ filter: brightness(0.96); }
+
+    /* ===== Safari風 下部バー（phish_result と同じ雰囲気） ===== */
+    .safari-bottom-bar{
+      position:absolute;
+      bottom:0; left:0;
+      width:100%;
+      height:44px;
+      background-color:#f8f8f8;
+      border-top:1px solid #b2b2b2;
+
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+
+      padding:0 12px;
+      box-sizing:border-box;
+      z-index: 70;
+
+      font-family:-apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .safari-icon{
+      width:20px; height:20px;
+      color:#007aff;
+      cursor:pointer;
+    }
+    .safari-icon.disabled{ color:#c7c7cc; cursor:default; }
+
+    .safari-nav-group, .safari-action-group{
+      display:flex;
+      gap:16px;
+      align-items:center;
+      flex-shrink:0;
+    }
+
+    .safari-address-fake{
+      flex:1;
+      text-align:center;
+      font-size:12px;
+      color:#000;
+      font-weight:500;
+      margin:0 10px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      gap:4px;
+      min-width: 0;
+    }
+
+
+    /* ===== “入力してしまった” 表示（学習用） ===== */
+    .overlay{
+      position:absolute; inset: 0;
+      background: rgba(17,24,39,.75);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: 18px;
+      z-index: 80;
+    }
+    .overlay.show{ display:flex; }
+    .warnModal{ background:#fff; border-radius: 16px; padding: 18px; width: min(360px, 94%); box-shadow: 0 20px 70px rgba(0,0,0,.45); }
+    .warnTitle{ display:flex; gap: 10px; align-items:center; font-weight: 900; color:#b91c1c; margin: 0 0 10px; }
+    .warnBody{ color:#374151; font-size: 14px; line-height: 1.7; margin: 0 0 14px; }
+    .btnReveal{ display:block; text-align:center; text-decoration:none; background:#2563eb; color:#fff; border-radius: 10px; padding: 12px; font-weight: 900; }
+
+    /* shake animation for warn popup */
+    @keyframes warnShake{
+      0%,100%{ transform: translateX(0); }
+      10%,30%,50%,70%,90%{ transform: translateX(-8px); }
+      20%,40%,60%,80%{ transform: translateX(8px); }
+    }
+    .warnModal.shake{ animation: warnShake .5s ease-in-out; }
+
+    /* ===== embed（iframeプレビュー） ===== */
+    body.embed{ background: transparent; }
+    body.embed .topbar, body.embed .container > .card > .kv, body.embed .container > .card > .hr{ display:none !important; }
+    body.embed .container{ padding:0; max-width:none; }
+    body.embed .card{ padding:0; box-shadow:none; background:transparent; }
+  </style>
+</head>
+
+<body>
+  <!-- sms_delivery と同じ外側UI（topbar/container/card）は app.css を利用 -->
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <div class="btitle">スミッシング</div>
+          <div class="bmeta">実際の操作で判断しよう</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card" style="padding-bottom: 55px;">
+      <div class="kv">
+        <span class="badge warn">現在の状況</span>
+        <span class="small"><h3>カード会社を装うSMSのリンク先を開いてしまいました。画面の指示に従うと何が起きるでしょう？</h3></span>
+      </div>
+      <div class="hr"></div>
+
+      <div class="deviceWrap">
+        <div class="device">
+          <div class="notch"><span class="spk"></span><span class="cam"></span></div>
+
+          <div class="bezel">
+            <div class="browserScreen">
+
+              <div class="statusbarReal">
+                <div id="timeText">14:59</div>
+                <div class="sbRight">
+                  <span>4G</span>
+                  <span class="bat"><i></i></span>
+                  <span style="font-size:12px" id="batPct">46</span>
+                </div>
+              </div>
+
+              <div class="siteTop">
+                <div class="mcLogo">
+                  <div class="mcMark" aria-hidden="true"></div>
+                  <div class="mcBrand">〇〇card</div>
+                </div>
+                <div class="menuIcon" aria-hidden="true">
+                  <span></span><span></span><span></span>
+                </div>
+              </div>
+
+              <div class="siteBody">
+                <div class="hero"></div>
+
+                <!-- Step 1: popup -->
+                <div class="popLayer" id="stepPopup">
+                  <div class="popCard">
+                    <div class="popTitle">カードセキュリティアップグレードのお知らせ</div>
+                    <p class="popText">
+                      お客様の〇〇カードに登録された携帯番号の本人確認が必要です。<br>
+                      本日中に認証を完了してください。<br><br>
+                      本人確認：セキュリティのため、ご本人確認が必要です。<br>
+                      確認手続き：下記のボタンをクリックし、指示に従ってください。
+                    </p>
+                    <button class="popBtn" id="proceedBtn">確認手続きを始める</button>
+                    <div class="popNote">※これは学習用の疑似画面です（情報は送信されません）</div>
+                  </div>
+                </div>
+
+                <!-- Step 2: form -->
+                <div class="formWrap" id="stepForm" aria-label="カード情報入力フォーム（学習用）">
+                  <div class="formTitle">保護の強化</div>
+                  <div class="formSub">プロセスを完了するために、あなたの情報を確認してください</div>
+
+                  <div class="brandRow" aria-hidden="true">
+                    <div class="brandPill">VISA</div>
+                    <div class="brandPill">Mastercard</div>
+                    <div class="brandPill">AMEX</div>
+                    <div class="brandPill">JCB</div>
+                  </div>
+
+                  <div class="field">
+                    <div class="label">カード名義人</div>
+                    <input class="input" id="cardName" type="text" autocomplete="off" />
+                  </div>
+
+                  <div class="field">
+                    <div class="label">カード番号</div>
+                    <input class="input" id="cardNo" type="text" inputmode="numeric" placeholder="0000 0000 0000 0000" autocomplete="off" />
+                  </div>
+
+                  <div class="grid2">
+                    <div class="field">
+                      <div class="label">有効期限</div>
+                      <input class="input" id="exp" type="text" inputmode="numeric" placeholder="MM/YY" autocomplete="off" />
+                    </div>
+                    <div class="field">
+                      <div class="label">セキュリティコード</div>
+                      <input class="input" id="cvc" type="text" inputmode="numeric" placeholder="000" autocomplete="off" />
+                    </div>
+                  </div>
+
+                  <button class="submit" id="submitBtn">続ける</button>
+                  <div style="margin-top:10px; font-size:12px; color:#6b7280;">
+                    業界標準の暗号化を使用して、送信した情報の機密性を保護します
+                  </div>
+                </div>
+
+                <div class="overlay" id="phishOverlay">
+                  <div class="warnModal">
+                    <div class="warnTitle">⚠ カード情報を入力してしまいました！</div>
+                    <p class="warnBody">
+                      本物の攻撃では、カード番号やセキュリティコードが不正利用される可能性があります。<br>
+                      学習用なのでここで止めて、解説で見分け方を確認しましょう。
+                    </p>
+                    <a class="btnReveal" id="goRevealBtn" href="./reveal_delivery.html?route=phished">振り返りへ</a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="safari-bottom-bar" aria-hidden="true">
+                <div class="safari-nav-group">
+                  <svg class="safari-icon disabled" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                  <svg class="safari-icon disabled" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </div>
+
+                <div class="safari-address-fake">
+                  <span style="font-size:10px">🔒</span>
+                  <span id="bottomDomain">〇〇cardjp.rtp</span>
+                </div>
+
+                <div class="safari-action-group">
+                  <svg class="safari-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+                  <svg class="safari-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+                  <svg class="safari-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                </div>
+              </div>
+<div class="reload">↻</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const urlParams = new URLSearchParams(location.search);
+      const q = Number(urlParams.get("q") || "5");
+      const step = urlParams.get("step") || "popup";
+      const embed = urlParams.get("embed") === "1";
+
+      if (embed) document.body.classList.add("embed");
+
+      // logger（embedでは記録しない）
+      try {
+        if (!embed && window.SecLogger) {
+          SecLogger.log("page_view", "phish_delivery", { q, title: document.title, step });
+        }
+      } catch(e) {}
+
+      // reveal link
+      const goReveal = document.getElementById("goRevealBtn");
+      if (goReveal) goReveal.href = `./reveal_delivery.html?route=phished&q=${encodeURIComponent(q)}`;
+
+      // step show/hide
+      const popup = document.getElementById("stepPopup");
+      const form  = document.getElementById("stepForm");
+      function showStep(name){
+        if (name === "form") {
+          if (popup) popup.style.display = "none";
+          if (form) form.style.display = "block";
+        } else {
+          if (popup) popup.style.display = "flex";
+          if (form)  form.style.display = "none";
+        }
+      }
+      showStep(step);
+
+      // clock
+      function updateClock(){
+        const d = new Date();
+        const hh = String(d.getHours()).padStart(2,"0");
+        const mm = String(d.getMinutes()).padStart(2,"0");
+        const t = document.getElementById("timeText");
+        if (t) t.textContent = `${hh}:${mm}`;
+      }
+      updateClock();
+      setInterval(updateClock, 1000);
+
+      // proceed -> show form (reloadしない版)
+      const proceedBtn = document.getElementById("proceedBtn");
+      if (proceedBtn) {
+        proceedBtn.addEventListener("click", () => {
+          try { if (!embed && window.SecLogger) SecLogger.log("decision", "phish_site", { q, action: "proceed_to_form" }); } catch(e) {}
+          showStep("form");
+
+          // URLにも状態を残す（リロードでも維持）
+          const url = new URL(location.href);
+          url.searchParams.set("q", String(q));
+          url.searchParams.set("step", "form");
+          history.replaceState(null, "", url.toString());
+
+          // すぐ入力できるようフォーカス
+          const first = document.getElementById("cardName");
+          if (first) first.focus();
+        });
+      }
+
+      // 入力補助：カード番号にスペース、期限にスラッシュ
+      const cardNo = document.getElementById("cardNo");
+      if (cardNo) {
+        cardNo.addEventListener("input", () => {
+          const raw = cardNo.value.replace(/\D/g,"").slice(0,19);
+          cardNo.value = raw.replace(/(.{4})/g, "$1 ").trim();
+        });
+      }
+      const exp = document.getElementById("exp");
+      if (exp) {
+        exp.addEventListener("input", () => {
+          const raw = exp.value.replace(/\D/g,"").slice(0,4);
+          exp.value = raw.length <= 2 ? raw : raw.slice(0,2) + "/" + raw.slice(2);
+        });
+      }
+      const cvc = document.getElementById("cvc");
+      if (cvc) {
+        cvc.addEventListener("input", () => {
+          cvc.value = cvc.value.replace(/\D/g,"").slice(0,4);
+        });
+      }
+
+      // submit -> show "phished" overlay（送信はしない）
+      const submitBtn = document.getElementById("submitBtn");
+      const overlay = document.getElementById("phishOverlay");
+
+      function showPhished(){
+        if (overlay) overlay.classList.add("show");
+
+        // shake the popup (re-triggerable)
+        const wm = overlay ? overlay.querySelector(".warnModal") : null;
+        if (wm) {
+          wm.classList.remove("shake");
+          void wm.offsetWidth; // force reflow
+          wm.classList.add("shake");
+          setTimeout(() => wm.classList.remove("shake"), 550);
+        }
+      }
+
+      function val(id){
+        const el = document.getElementById(id);
+        return el ? (el.value || "").trim() : "";
+      }
+      function mark(el, bad){
+        if (!el) return;
+        el.style.borderColor = bad ? "#ef4444" : "#e5e7eb";
+      }
+
+      if (submitBtn) {
+        submitBtn.addEventListener("click", () => {
+          const n = document.getElementById("cardName");
+          const c = document.getElementById("cardNo");
+          const e = document.getElementById("exp");
+          const v = document.getElementById("cvc");
+
+          const name = val("cardName");
+          const card = val("cardNo");
+          const expv = val("exp");
+          const cvv  = val("cvc");
+
+          // 軽いバリデーション（学習用）
+          const badName = !name;
+          const badCard = card.replace(/\s/g,"").length < 12;
+          const badExp  = expv.replace(/\D/g,"").length < 4;
+          const badCvc  = cvv.replace(/\D/g,"").length < 3;
+
+          mark(n, badName);
+          mark(c, badCard);
+          mark(e, badExp);
+          mark(v, badCvc);
+
+          try { if (!embed && window.SecLogger) SecLogger.log("decision", "phish_site", { q, action: "submit_attempt", ok: !(badName||badCard||badExp||badCvc) }); } catch(e) {}
+
+          if (badName || badCard || badExp || badCvc) return;
+
+          try {
+            if (!embed && window.SecLogger) {
+              SecLogger.log("decision", "phish_site", {
+                q,
+                action: "submit",
+                name_len: name.length,
+                card_len: card.length,
+                exp_len: expv.length,
+                cvc_len: cvv.length
+              });
+            }
+          } catch(e) {}
+
+          showPhished();
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

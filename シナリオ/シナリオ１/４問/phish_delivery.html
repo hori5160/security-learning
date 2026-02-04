@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>フィッシング体験（Web）</title>
+
+  <link rel="stylesheet" href="../../../assets/app.css" />
+  <script src="../../../assets/logger.js"></script>
+  <script src="../common/scenario_core.js"></script>
+  <script src="../common/delivery_questions.js"></script>
+  <style>
+
+    /* =========================================
+       基本設定
+       ========================================= */
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      margin: 0;
+      background-color: #f0f0f0;
+    }
+
+    /* =========================================
+       スマホ外枠
+       ========================================= */
+    .deviceWrap{
+      display:flex;
+      justify-content:center;
+      margin-top: 40px;
+    }
+    .device{
+      width:min(390px, 92vw);
+      aspect-ratio: 11 / 19.5;
+      border-radius: 42px;
+      padding: 8px;
+      background: linear-gradient(180deg, #2a2a2a, #313131);
+      border: 1px solid rgba(0,0,0,.85);
+      box-shadow:
+        0 18px 50px rgba(0,0,0,.45),
+        0 0 0 2px rgba(255,255,255,.06) inset;
+      position: relative;
+    }
+    .bezel{
+      height: 100%;
+      border-radius: 34px;
+      overflow:hidden;
+      border: 1px solid rgba(12, 38, 73, 0.25);
+      background: #ffffff;
+      position: relative;
+    }
+    .notch{
+      position:absolute;
+      top:5px; left:50%;
+      transform: translateX(-50%);
+      width: 150px; height: 28px;
+      border-radius: 0 0 16px 16px;
+      background: rgba(2,6,23,.85);
+      z-index: 100;
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      pointer-events:none;
+    }
+    .spk{ width:60px; height:6px; border-radius:999px; background: rgba(255,255,255,.16); }
+    .cam{ width:10px; height:10px; border-radius:999px; background: rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.12); }
+
+    /* =========================================
+       Web画面
+       ========================================= */
+    .webScreen{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      background:#ffffff;
+      color:#000;
+      position: relative;
+    }
+
+    /* --- ステータスバー --- */
+    .statusbarReal{
+      height: 44px;
+      padding: 10px 24px 6px;
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      font-size: 14px;
+      font-weight: 600;
+      color: #000;
+      background: #fff;
+      z-index: 50;
+    }
+    .sbRight{ display:flex; gap:6px; align-items:center; }
+    .bat{
+      width:24px; height:11px; border-radius:3px;
+      border:1px solid #999;
+      position:relative;
+    }
+    .bat::after{
+      content:""; position:absolute; right:-4px; top:3px;
+      width:2px; height:4px; border-radius:1px; background: #999;
+    }
+    .bat i{
+      position:absolute; left:1px; top:1px; bottom:1px;
+      width:90%; border-radius:2px; background: #000; display:block;
+    }
+
+    /* Safari風バー */
+    .safariBar{
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      padding: 6px 10px 10px;
+      display:flex;
+      flex-direction:column;
+      gap: 6px;
+      z-index: 40;
+    }
+    .safariTopRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      padding: 0 4px;
+      color: #007AFF;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .safariCenter{
+      flex:1;
+      display:flex;
+      justify-content:center;
+      color:#111827;
+      font-weight:600;
+    }
+    .safariAddr{
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      width: 100%;
+      background: rgba(60,60,67,0.10);
+      border: 1px solid rgba(60,60,67,0.12);
+      border-radius: 14px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color:#111827;
+    }
+    .lockDot{
+      width: 8px; height: 8px; border-radius: 999px;
+      background: #10b981;
+      box-shadow: 0 0 0 2px rgba(16,185,129,0.18);
+      flex-shrink: 0;
+    }
+    .addrText{
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex:1;
+    }
+    .safariPill{
+      font-size: 11px;
+      color:#6b7280;
+      padding-left: 4px;
+    }
+
+    /* Webコンテンツ */
+    .webScroll{
+      flex: 1;
+      overflow-y: auto;
+      background: #fff;
+      position: relative;
+      padding-bottom: 52px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* 偽サイトのトップバー */
+    .siteTopbar{
+      min-height: 44px;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      background: #f2f3f5;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+    }
+    .siteTopbar-icon{
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #c0392b, #922b21);  /* 国税庁イメージ：赤系 */
+      border-radius: 50%;
+      display:flex; align-items:center; justify-content:center;
+      color:#fff; font-weight:700; font-size: 18px;
+      margin-right: 10px;
+      flex-shrink:0;
+    }
+    .siteTopbar-title{ font-size: 14px; font-weight: 700; color:#333; }
+
+    /* ===== フォームUI ===== */
+    .content{
+      padding: 14px 16px 28px;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+    .content p{
+      margin: 0 0 12px;
+    }
+    .input-group{
+      margin: 14px 0;
+    }
+    .input-group label{
+      display:block;
+      font-size: 12px;
+      font-weight: 700;
+      color: #374151;
+      margin: 0 0 6px;
+      letter-spacing: .02em;
+    }
+    .input-group input{
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      background: #fff;
+      color: #111827;
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .input-group input:focus{
+      border-color: rgba(59,130,246,0.9);
+      box-shadow: 0 0 0 4px rgba(59,130,246,0.15);
+    }
+    .error-msg{
+      display:none;
+      margin-top: 6px;
+      font-size: 12px;
+      color: #ef4444;
+      line-height: 1.2;
+    }
+    .error-msg.show{ display:block; }
+    .input-group input.error{
+      border-color: rgba(239,68,68,0.95);
+      background: rgba(239,68,68,0.05);
+    }
+    .btn-submit{
+      width: 100%;
+      border: none;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-size: 16px;
+      font-weight: 800;
+      background: #c0392b;   /* 国税庁イメージ：赤 */
+      color: #fff;
+      box-shadow: 0 10px 24px rgba(192,57,43,0.25);
+      cursor:pointer;
+      margin-top: 6px;
+    }
+    .btn-submit:active{
+      transform: translateY(1px);
+      box-shadow: 0 7px 18px rgba(192,57,43,0.22);
+    }
+
+    /* オーバーレイ */
+    .overlay-backdrop{
+      position:absolute;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background: rgba(17,24,39,0.45);
+      z-index: 999;
+    }
+    .overlay-backdrop.show{
+      display:flex;
+    }
+
+    /* 入力時の文字ブレ対策 */
+    html, body{
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+    .webScreen, .webScreen *{
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .webScreen input,
+    .webScreen textarea,
+    .webScreen select,
+    .webScreen button{
+      font-size: 16px;
+    }
+    .webScreen input{
+      line-height: 1.2;
+    }
+
+    .popup-box{
+      width: min(320px, 86%);
+      background: #ffffff;
+      border: 2px solid rgba(0,0,0,0.12);
+      border-radius: 16px;
+      padding: 16px 14px;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.22);
+      text-align: center;
+    }
+    .popup-title{ font-size: 18px; font-weight: 900; color:#111827; margin: 0 0 8px; }
+    .popup-text{ font-size: 13px; color:#374151; margin: 0 0 10px; line-height: 1.6; }
+    .popup-note{ font-size: 12px; color:#6b7280; margin-top: 6px; }
+
+    /* Safari下端バー */
+    .safari-bottom-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 44px;
+      background-color: #f8f8f8;
+      border-top: 1px solid #b2b2b2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      box-sizing: border-box;
+      z-index: 100;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .safari-icon {
+      width: 20px;
+      height: 20px;
+      color: #007aff;
+      cursor: pointer;
+    }
+    .safari-icon.disabled { color: #c7c7cc; cursor: default; }
+    .safari-nav-group, .safari-action-group {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    .safari-address-fake {
+      flex-grow: 1;
+      text-align: center;
+      font-size: 12px;
+      color: #000;
+      font-weight: 500;
+      margin: 0 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* ホームバー */
+    .homeIndicator{
+      position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+      width: 130px; height: 5px;
+      background: #000;
+      border-radius: 10px;
+      z-index: 100;
+    }
+    </style>
+</head>
+
+<body>
+  <!-- 上部UI -->
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <div class="btitle">スミッシング</div>
+          <div class="bmeta">実際の操作で判断しよう</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card" style="padding-bottom: 55px;">
+      <div class="kv">
+        <span class="badge warn">現在の状況</span>
+        <span class="small"><h3>偽の〇〇庁お支払い受付サイトが開きました。<br>カード情報を入力するとどうなるでしょうか？</h3></span>
+      </div>
+      <div class="hr"></div>
+
+      <div class="deviceWrap">
+        <div class="device">
+          <div class="notch"><span class="spk"></span><span class="cam"></span></div>
+
+          <div class="bezel">
+            <div class="webScreen" id="webScreen">
+              <!-- ステータスバー -->
+              <div class="statusbarReal">
+                <div id="timeText">11:42</div>
+                <div class="sbRight">
+                  <span>4G</span>
+                  <span class="bat"><i></i></span>
+                  <span style="font-size:12px">95</span>
+                </div>
+              </div>
+
+              <!-- Safari風バー -->
+              <div class="safariBar">
+                <div class="safariTopRow">
+                  <div id="safariBack" style="opacity:.65;">‹</div>
+                  <div class="safariCenter">Safari</div>
+                  <div id="safariReload" style="opacity:.65;">⟳</div>
+                </div>
+                <div class="safariAddr">
+                  <span class="lockDot"></span>
+                  <span class="addrText" id="addrText">https://xxxxxx.fake-link.com/tax/pay</span>
+                </div>
+                <div class="safariPill">※学習用の疑似画面です（送信・保存しません）</div>
+              </div>
+
+              <!-- 偽サイト本体 -->
+              <div class="webScroll">
+                <!-- 偽サイトトップバー -->
+                <div class="siteTopbar">
+                  <div class="siteTopbar-icon">偽</div>
+                  <div class="siteTopbar-title">〇〇庁 お支払い受付</div>
+                </div>
+
+                <!-- フォーム -->
+                <div class="content">
+                  <p style="font-size:12px; color:#444; margin-bottom:15px; line-height:1.5;">
+                    お客様の所得税に未納があります。<br>
+                    下記フォームよりカード情報をご入力ください。
+                  </p>
+
+                  <!-- カード上の名前 -->
+                  <div class="input-group">
+                    <label>カード上の名前</label>
+                    <input type="text" id="cardName" placeholder="例：田中 太郎" enterkeyhint="next">
+                    <div class="error-msg">カード上の名前を入力してください</div>
+                  </div>
+
+                  <!-- カード番号 -->
+                  <div class="input-group">
+                    <label>カード番号</label>
+                    <input type="tel" id="cardNum" placeholder="1234 5678 9012 3456" enterkeyhint="next" inputmode="numeric">
+                    <div class="error-msg">カード番号を入力してください</div>
+                  </div>
+
+                  <!-- 有効期限 -->
+                  <div class="input-group">
+                    <label>有効期限（MM/YY）</label>
+                    <input type="tel" id="cardExpiry" placeholder="例：12/27" enterkeyhint="next" inputmode="numeric">
+                    <div class="error-msg">有効期限を入力してください</div>
+                  </div>
+
+                  <!-- セキュリティコード -->
+                  <div class="input-group">
+                    <label>セキュリティコード（下3桁）</label>
+                    <input type="tel" id="cardCvv" placeholder="例：123" enterkeyhint="done" inputmode="numeric">
+                    <div class="error-msg">セキュリティコードを入力してください</div>
+                  </div>
+
+                  <button class="btn-submit" onclick="handleSubmit()">お支払いを完了する</button>
+                </div>
+              </div>
+
+              <!-- ホームバー -->
+              <div class="homeIndicator"></div>
+
+              <!-- Safari下端バー -->
+              <div class="safari-bottom-bar">
+                <div class="safari-nav-group">
+                  <svg class="safari-icon disabled" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                  <svg class="safari-icon disabled" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </div>
+                <div class="safari-address-fake">
+                  <span style="font-size:10px">🔒</span> xxxxxx.fake-link.com
+                </div>
+                <div class="safari-action-group">
+                  <svg class="safari-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+                  <svg class="safari-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+                  <svg class="safari-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                </div>
+              </div>
+
+              <!-- 送信中オーバーレイ -->
+              <div id="overlay" class="overlay-backdrop">
+                <div class="popup-box">
+                  <span class="popup-icon">⚠️</span>
+                  <h2 class="popup-title">送信中…</h2>
+                  <p class="popup-text">
+                    お支払い情報を確認しています…<br>
+                    しばらくお待ちください。
+                  </p>
+                  <p class="popup-note">
+                    <strong>カード番号やセキュリティコード</strong>が<br>
+                    悪用される危険があります。
+                  </p>
+                </div>
+              </div>
+
+            </div><!-- /webScreen -->
+          </div><!-- /bezel -->
+        </div><!-- /device -->
+      </div><!-- /deviceWrap -->
+
+      <script>
+  // 時計更新
+  function updateClock() {
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2,"0");
+    const mm = String(d.getMinutes()).padStart(2,"0");
+    const t = document.getElementById("timeText");
+    if (t) {
+      const next = `${hh}:${mm}`;
+      if (t.textContent !== next) t.textContent = next;
+    }
+  }
+  setInterval(updateClock, 30000);
+  updateClock();
+
+  // Enterキーでのフォーカス移動
+  const inputs = [
+    document.getElementById("cardName"),
+    document.getElementById("cardNum"),
+    document.getElementById("cardExpiry"),
+    document.getElementById("cardCvv")
+  ];
+
+  inputs.forEach((input, index) => {
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const nextInput = inputs[index + 1];
+        if (nextInput) {
+          nextInput.focus();
+        } else {
+          input.blur();
+        }
+      }
+    });
+  });
+
+  // クエリパラメータ
+  const params = new URLSearchParams(location.search);
+  const q = params.get("q") || "1";
+
+  // ログ：ページ閲覧
+  try {
+    if (window.SecLogger) {
+      SecLogger.log("page_view", "phish_form", { q });
+    }
+  } catch(e){}
+
+  // ===== 送信ボタン処理 =====
+  function handleSubmit() {
+    let hasError = false;
+
+    const validate = (input) => {
+      const msg = input.parentElement.querySelector('.error-msg');
+      if (!input.value.trim()) {
+        input.classList.add('error');
+        msg.classList.add('show');
+        hasError = true;
+      } else {
+        input.classList.remove('error');
+        msg.classList.remove('show');
+      }
+    };
+
+    inputs.forEach(inp => validate(inp));
+    if (hasError) return;
+
+    // ログ：入力してしまった
+    try {
+      SecLogger.log("decision", "phished_input_complete", {
+        q,
+        cardName_len:   document.getElementById("cardName").value.length,
+        cardNum_len:    document.getElementById("cardNum").value.length,
+        cardExpiry_len: document.getElementById("cardExpiry").value.length,
+        cardCvv_len:    document.getElementById("cardCvv").value.length
+      });
+    } catch(e){}
+
+    // オーバーレイ表示 → 結果画面へ
+    const overlay = document.getElementById("overlay");
+    overlay.classList.add("show");
+
+    setTimeout(() => {
+      location.href = `./phish_result_delivery.html?route=phished&q=${q}`;
+    }, 900);
+  }
+
+  // Safari アドレス表示の動的更新（Delivery10データがある場合）
+  try {
+    const addrEl = document.getElementById("addrText");
+    if (addrEl) {
+      const q2 = Number(params.get("q") || "1");
+      if (window.SC && SC.phishSite && SC.phishSite.safariUrl) {
+        addrEl.textContent = SC.phishSite.safariUrl;
+      } else if (window.Delivery10 && typeof Delivery10.getQ === "function") {
+        const d = Delivery10.getQ(q2);
+        if (d && d.urlText) addrEl.textContent = d.urlText;
+      }
+    }
+  } catch(e) {}
+
+      </script>
+    </div>
+  </div>
+</body>
+</html>

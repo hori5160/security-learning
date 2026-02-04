@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>再配達の手続き</title>
+  <link rel="stylesheet" href="../../../assets/app.css" />
+  <script src="../../../assets/logger.js"></script>
+  <script src="../common/scenario_core.js"></script>
+  <script src="../common/delivery_questions.js"></script>
+
+  <style>
+    /* ▼▼▼ リセット・基本設定 ▼▼▼ */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif;
+      background-color: #f0f2f5;
+      color: #333;
+    }
+
+    /* ▼▼▼ 画面上部のバー ▼▼▼ */
+    .topbar {
+      background: #f0f2f5;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 20px;
+    }
+    
+    /* ▼▼▼ アイコンのスタイル（グラデーション変更版） ▼▼▼ */
+    .topbar-icon {
+      width: 32px;
+      height: 32px;
+      /* 単色（#3b82f6）を削除し、以下のグラデーションを適用 */
+      background: linear-gradient(135deg, #6366f1, #3b82f6) !important;
+      border-radius: 8px;
+      margin-right: 12px;
+      box-shadow: 0 2px 5px rgba(59, 130, 246, 0.3); /* 少し影をつけてリッチに */
+    }
+
+    .topbar-text h1 {
+      margin: 0;
+      font-size: 14px;
+      color: #333;
+      font-weight: bold;
+    }
+    .topbar-text p {
+      margin: 2px 0 0;
+      font-size: 11px;
+      color: #666;
+    }
+    .badge {
+      display: inline-block;
+      background: #eee;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      margin-right: 5px;
+    }
+
+    /* ▼▼▼ メインコンテンツ ▼▼▼ */
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+    .card {
+      background: #fff;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .form-title { font-size: 1.4rem; font-weight: bold; margin-bottom: 8px; }
+    .form-meta { font-size: 0.9rem; color: #6b7280; margin-bottom: 24px; }
+    .description { font-size: 1rem; margin-bottom: 8px; }
+    .warning-text { color: #dc2626; font-size: 0.95rem; margin-bottom: 20px; }
+    
+    .input-group { margin-bottom: 16px; }
+    
+    .input {
+      width: 100%; padding: 12px 16px; border: 1px solid #d1d5db;
+      border-radius: 6px; font-size: 1rem; background: #f9fafb;
+      box-sizing: border-box; outline: none; transition: all 0.2s;
+    }
+    .input:focus { border-color: #3b82f6; background: #fff; }
+
+    /* ▼▼▼ エラー時のスタイル ▼▼▼ */
+    .input.error {
+      border-color: #dc2626; /* 赤枠 */
+      background-color: #fef2f2; /* 薄い赤背景 */
+    }
+    .error-msg {
+      color: #dc2626;
+      font-size: 0.85rem;
+      font-weight: bold;
+      margin-top: 6px;
+      display: none; /* 初期は非表示 */
+    }
+    .error-msg.show {
+      display: block; /* エラー時に表示 */
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+
+    .btn-submit {
+      width: 100%; background-color: #1e3a8a; color: white; border: none;
+      padding: 14px; border-radius: 6px; font-size: 1rem; font-weight: bold;
+      cursor: pointer; margin-top: 10px;
+    }
+    .btn-submit:hover { opacity: 0.9; }
+
+    /* ▼▼▼ ポップアップ設定 ▼▼▼ */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(30, 41, 59, 0.85);
+      display: none; place-items: center; z-index: 9999; opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .overlay.show { display: grid; opacity: 1; }
+    .modal {
+      background: #0f172a; border: 1px solid #ef4444;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+      border-radius: 12px; padding: 24px; width: min(400px, 90vw);
+      color: #fff; text-align: left;
+    }
+    .modal-title {
+      font-size: 1.1rem; font-weight: bold; display: flex;
+      align-items: center; gap: 10px; margin-bottom: 12px; color: #ef4444;
+    }
+    .modal-body {
+      font-size: 0.9rem; line-height: 1.6; color: #e2e8f0;
+      margin-bottom: 24px; border-top: 1px solid #334155; padding-top: 12px;
+    }
+    .btn-reveal {
+      display: block; width: 100%; background-color: #3b82f6; color: white;
+      text-align: center; text-decoration: none; padding: 12px 0;
+      border-radius: 6px; font-weight: bold; transition: background 0.2s;
+    }
+    .btn-reveal:hover { background-color: #2563eb; }
+
+    /* ▼▼▼ 振動アニメーション ▼▼▼ */
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      20% { transform: translateX(-5px) rotate(-1deg); }
+      40% { transform: translateX(5px) rotate(1deg); }
+      60% { transform: translateX(-5px) rotate(-1deg); }
+      80% { transform: translateX(5px) rotate(1deg); }
+      100% { transform: translateX(0); }
+    }
+    .shake {
+      animation: shake 0.4s ease-in-out;
+    }
+  </style>
+
+<script src="./delivery_questions.js"></script>
+
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-icon"></div>
+    <div class="topbar-text">
+      <h1>ブラウザ（体験）</h1>
+      <p><span class="badge">2/3</span>リンク先を確認</p>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card">
+
+      <div class="form-meta" style="margin-bottom:10px;">
+        適当で構いません。個人情報を入力してみてください↓
+      </div>
+      <div class="form-title">再配達の手続き</div>
+
+<div class="description">再配達のため、受取情報の確認が必要です。</div>
+
+      <div class="warning-text">※住所・電話番号を入力してください</div>
+
+      <div class="input-group">
+        <input class="input" id="name" type="text" placeholder="氏名" data-next="phone">
+        <div class="error-msg">ここが入力されていません</div>
+      </div>
+      <div class="input-group">
+        <input class="input" id="phone" type="tel" placeholder="電話番号" data-next="addr">
+        <div class="error-msg">ここが入力されていません</div>
+      </div>
+      <div class="input-group">
+        <input class="input" id="addr" type="text" placeholder="住所">
+        <div class="error-msg">ここが入力されていません</div>
+      </div>
+
+      <button class="btn-submit" id="sendBtn">再配達を依頼する</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <div class="modal-title">
+        <span>⚠</span> 個人情報を入力してしまいました！
+      </div>
+      <div class="modal-body">
+        本物の攻撃では、住所・電話番号などが悪用される可能性があるので注意が必要です。
+      </div>
+      <a class="btn-reveal" id="goRevealBtn" href="./reveal_delivery.html?route=phished">
+        振り返りへ
+      </a>
+    </div>
+  </div>
+
+  <script>
+    try { SecLogger.log("page_view", "phish_delivery", { title: document.title }); } catch(e){}
+    const params = new URLSearchParams(location.search);
+    const q = params.get("q") || "1";
+    const goBtn = document.getElementById("goRevealBtn");
+    if (goBtn) { goBtn.href = `./reveal_delivery.html?route=phished&q=${encodeURIComponent(q)}`; }
+
+    // ▼▼▼ Enterキー制御ロジック ▼▼▼
+    document.querySelectorAll('input').forEach(input => {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const nextId = input.dataset.next;
+          if (nextId) {
+            const nextEl = document.getElementById(nextId);
+            if (nextEl && nextEl.tagName !== 'BUTTON') {
+              nextEl.focus();
+            }
+          }
+        }
+      });
+
+      // 入力時にエラーを消す（ユーザー体験向上）
+      input.addEventListener('input', () => {
+        input.classList.remove('error');
+        const msg = input.parentElement.querySelector('.error-msg');
+        if (msg) msg.classList.remove('show');
+      });
+    });
+
+    // ▼▼▼ 送信ボタンクリック時（バリデーション追加） ▼▼▼
+    document.getElementById("sendBtn").addEventListener("click", () => {
+      
+      const nameInput = document.getElementById("name");
+      const phoneInput = document.getElementById("phone");
+      const addrInput = document.getElementById("addr");
+      let hasError = false;
+
+      // エラーチェック関数
+      const checkInput = (input) => {
+        if (!input.value.trim()) { // 空文字チェック
+          input.classList.add('error'); // 赤枠追加
+          const msg = input.parentElement.querySelector('.error-msg');
+          if (msg) msg.classList.add('show'); // メッセージ表示
+          hasError = true;
+        } else {
+          input.classList.remove('error');
+          const msg = input.parentElement.querySelector('.error-msg');
+          if (msg) msg.classList.remove('show');
+        }
+      };
+
+      // 3つの入力欄をチェック
+      checkInput(nameInput);
+      checkInput(phoneInput);
+      checkInput(addrInput);
+
+      // エラーがあればここで終了（ポップアップを出さない）
+      if (hasError) {
+        return; 
+      }
+
+      // --- 以下、すべて入力された場合の処理 ---
+
+      try {
+        SecLogger.log("decision", "phished", {
+          q,
+          name_len: nameInput.value.length,
+          phone_len: phoneInput.value.length,
+          addr_len: addrInput.value.length
+        });
+      } catch(e){}
+
+      const overlay = document.getElementById("overlay");
+      const modal = overlay.querySelector('.modal');
+
+      overlay.classList.add("show");
+      modal.classList.add("shake");
+      
+      setTimeout(() => {
+        modal.classList.remove("shake");
+      }, 400);
+    });
+  </script>
+
+</body>
+</html>
