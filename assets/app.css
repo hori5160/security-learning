@@ -1,0 +1,305 @@
+:root{
+  --bg:#f5f7fb;
+  --card:#ffffff;
+  --text:#0f172a;
+  --muted:#475569;
+  --line:#e2e8f0;
+
+  --primary:#2563eb;
+  --primary-2:#1d4ed8;
+
+  --good:#16a34a;
+  --warn:#f59e0b;
+  --bad:#dc2626;
+
+  --radius:16px;
+  --shadow:0 10px 28px rgba(15, 23, 42, .10);
+  --shadow2:0 6px 16px rgba(15, 23, 42, .08);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height:1.55;
+}
+
+/* Layout */
+.container{max-width:980px;margin:0 auto;padding:18px}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;gap:12px}
+@media (min-width:800px){ .grid-2{grid-template-columns:1fr 1fr} }
+
+.card{
+  background:var(--card);
+  border-radius:var(--radius);
+  padding:18px;
+  box-shadow:var(--shadow2);
+  border:1px solid rgba(226,232,240,.7);
+}
+
+h1{font-size:22px;margin:0 0 6px}
+h2{font-size:18px;margin:0 0 10px}
+p{margin:8px 0}
+.small{font-size:13px;color:var(--muted)}
+.hr{height:1px;background:var(--line);margin:12px 0}
+
+/* Top bar */
+.topbar{
+  position:sticky; top:0; z-index:10;
+  backdrop-filter: blur(8px);
+  background: rgba(245,247,251,.86);
+  border-bottom:1px solid var(--line);
+}
+.topbar-inner{
+  max-width:980px;margin:0 auto;padding:10px 18px;
+  display:flex;gap:10px;align-items:center;justify-content:space-between;
+}
+.brand{display:flex;gap:10px;align-items:center}
+.logo{
+  width:34px;height:34px;border-radius:12px;
+  background:linear-gradient(135deg,var(--primary),#60a5fa);
+  box-shadow:var(--shadow2);
+}
+.btitle{font-weight:800}
+.bmeta{font-size:12px;color:var(--muted)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.chip{
+  font-size:12px;color:var(--muted);
+  border:1px solid var(--line);
+  background:#fff;
+  padding:6px 10px;border-radius:999px;
+}
+
+/* Buttons & links */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  gap:8px;
+  border:0;
+  border-radius:14px;
+  padding:12px 14px;
+  cursor:pointer;
+  font-weight:800;
+  text-decoration:none;
+  user-select:none;
+  transition: transform .06s ease, background .12s ease, box-shadow .12s ease;
+}
+.btn:active{transform:translateY(1px)}
+.btn:focus{outline:3px solid rgba(37,99,235,.25); outline-offset:2px}
+
+.btn-primary{background:var(--primary);color:#fff;box-shadow:var(--shadow2)}
+.btn-primary:hover{background:var(--primary-2)}
+.btn-ghost{background:#e2e8f0;color:var(--text)}
+.btn-ghost:hover{background:#dbe3ee}
+.btn-good{background:rgba(22,163,74,.12);color:var(--good);border:1px solid rgba(22,163,74,.25)}
+.btn-warn{background:rgba(245,158,11,.12);color:#92400e;border:1px solid rgba(245,158,11,.25)}
+.btn-bad{background:rgba(220,38,38,.10);color:var(--bad);border:1px solid rgba(220,38,38,.25)}
+.btn-block{width:100%}
+a.link{color:var(--primary);text-decoration:underline}
+
+/* Notice */
+.notice{
+  background:#fffbeb;
+  border:1px solid rgba(245,158,11,.35);
+  padding:12px 12px;
+  border-radius:14px;
+}
+
+/* Badge */
+.badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 10px;border-radius:999px;
+  font-weight:800;font-size:12px;
+  border:1px solid var(--line);
+  background:#fff;
+}
+.badge.good{color:var(--good);border-color:rgba(22,163,74,.25);background:rgba(22,163,74,.08)}
+.badge.warn{color:#92400e;border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.10)}
+.badge.bad{color:var(--bad);border-color:rgba(220,38,38,.25);background:rgba(220,38,38,.08)}
+
+/* Phone mock */
+.phone{
+  width:min(420px, 100%);
+  background:#0b1220;
+  border-radius:26px;
+  padding:12px;
+  box-shadow:var(--shadow);
+}
+.screen{
+  background:#eef2f7;
+  border-radius:20px;
+  padding:12px;
+  min-height:560px;
+  display:flex;flex-direction:column;gap:10px;
+}
+.statusbar{
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:12px;color:#64748b;
+  padding:2px 2px 8px;
+}
+.addrbar{
+  background:#fff;border:1px solid var(--line);
+  border-radius:999px;
+  padding:8px 10px;
+  display:flex;gap:8px;align-items:center;
+  font-size:12px;color:#64748b;
+}
+.addr-pill{font-weight:800;color:#334155}
+
+.bubble{
+  max-width:92%;
+  padding:10px 12px;
+  border-radius:16px;
+  margin:2px 0;
+  box-shadow:0 2px 8px rgba(15,23,42,.06);
+}
+.left{background:#fff;border-top-left-radius:6px}
+.right{background:#dbeafe;margin-left:auto;border-top-right-radius:6px}
+.sms-meta{font-size:12px;color:#64748b;margin-top:6px}
+.fake-link{
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size:12px;
+  color:#0f172a;
+  background:#f1f5f9;
+  border:1px dashed #cbd5e1;
+  padding:6px 8px;border-radius:10px;
+  display:inline-block;
+}
+
+/* Form */
+.label{font-size:13px;color:var(--muted);margin:12px 0 6px}
+.input{
+  width:100%;
+  padding:12px;
+  border:1px solid #cbd5e1;
+  border-radius:14px;
+  background:#fff;
+}
+.input:focus{outline:3px solid rgba(37,99,235,.20); border-color:rgba(37,99,235,.40)}
+.help{font-size:12px;color:var(--muted);margin-top:6px}
+
+/* Sections */
+.section-title{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.kv{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* ===== 画面にフィットさせる安全策 ===== */
+body { overflow-x: hidden; }
+
+/* カード類は絶対にはみ出さない */
+.container, .card, .phone, .screen { max-width: 100%; }
+
+/* URLや長い文字列で横に伸びないようにする */
+.fake-link, .bubble, .notice, .card, p, li {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* “スマホ画面”の高さ固定をやめて、画面高に追従させる */
+.screen{
+  min-height: min(560px, calc(100dvh - 220px)); /* 220pxは上バーや余白分 */
+}
+
+/* 小さい画面（スマホ幅）ではボタンを縦並び＆幅100%で押しやすく */
+@media (max-width: 520px) {
+  .topbar-inner { flex-wrap: wrap; gap: 8px; }
+  .chips { width: 100%; justify-content: flex-start; }
+  .container { padding: 12px; }
+  .row { width: 100%; }
+  .btn { width: 100%; }
+}
+
+.phone { margin-left:auto; margin-right:auto; }
+
+/* ===== phone を画面幅に合わせて伸縮（第1話・第2話 共通）===== */
+
+/* phone枠：小さい画面ではほぼ全幅 / 大きい画面ではほどよい最大幅 */
+.phone{
+  width: clamp(320px, 92vw, 520px);
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 中身：高さも画面に追従（固定min-heightで崩れるのを防ぐ） */
+.screen{
+  min-height: clamp(480px, 70dvh, 680px);
+}
+
+.fake-link, .bubble, .notice, .card, p, li{
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* ===== ここから下は上書き（潰れ対策）===== */
+
+/* phone枠：中央寄せ＆画面幅に追従 */
+.phone{
+  width: min(92vw, 520px);
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* screen：必ず高さを確保（vhベースで安全に） */
+.screen{
+  /* ここを小さめに：内容が少ないページで縦長になりすぎない */
+  min-height: 420px;
+
+  /* 画面が低いときはスクロールで対応（枠の見た目は保つ） */
+  max-height: calc(100vh - 220px);
+  overflow: auto;
+
+  background:#eef2f7;
+  border-radius:20px;
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+
+/* 長いURLで横がはみ出して崩れるのを防ぐ */
+.fake-link, .bubble, .notice, .card, p, li{
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* 横スクロール防止（念のため） */
+body{ overflow-x: hidden; }
+
+/* === Topbarを全ページで左寄せに固定（上書き） === */
+.topbar-inner{
+  /* 中央寄せ（margin: 0 auto / max-width）を無効化してフル幅に */
+  max-width: none !important;
+  margin: 0 !important;
+
+  /* 左スタートにする */
+  display: flex;
+  align-items: center;
+  justify-content: flex-start !important;
+
+  /* 左端の余白（必要なら 0 にしてOK） */
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+/* 左側のブランドを左寄せ */
+.brand{
+  text-align: left !important;
+  justify-content: flex-start !important;
+}
+
+/* 右側にあるチップ(ログ件数など)は右端へ */
+.chips{
+  margin-left: auto;
+}
+
+/* タイトル/メタ文字も左寄せ固定 */
+.btitle, .bmeta{
+  text-align: left !important;
+}
+
