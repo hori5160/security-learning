@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>学習後アンケート</title>
+  <link rel="stylesheet" href="../../../assets/app.css" />
+  <script src="../common/scenario_core.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>学習後アンケート（1分）</h1>
+
+      <form id="f">
+        <label>Q1. 見分け方が分かった（1〜5）</label>
+        <input class="input" name="q1" type="number" min="1" max="5" required>
+
+        <label style="margin-top:12px; display:block;">Q2. 自信がついた（1〜5）</label>
+        <input class="input" name="q2" type="number" min="1" max="5" required>
+
+        <label style="margin-top:12px; display:block;">Q3. 体験は役に立った（1〜5）</label>
+        <input class="input" name="q3" type="number" min="1" max="5" required>
+
+        <label style="margin-top:12px; display:block;">Q4. 難しかった点（自由記述）</label>
+        <textarea class="input" name="free" rows="4"></textarea>
+
+        <button class="btn btn-primary" style="margin-top:16px; width:100%;">送信</button>
+      </form>
+
+      <p id="msg" style="margin-top:12px;"></p>
+
+      <div style="margin-top:12px; display:flex; gap:12px; flex-wrap:wrap;">
+        <a class="btn btn-ghost" href="./result_delivery.html">結果へ戻る</a>
+        <a class="btn btn-ghost" href="../../../index.html">ホーム</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const KEY = "sec_delivery10_v1_survey";
+    const runId = (QuizFlow.ensureOrder(10, { adaptive: true }).runId || "no_run");
+
+    document.getElementById("f").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+
+      const row = {
+        runId,
+        at: Date.now(),
+        q1: Number(fd.get("q1")),
+        q2: Number(fd.get("q2")),
+        q3: Number(fd.get("q3")),
+        free_len: String(fd.get("free") || "").length
+      };
+
+      const arr = JSON.parse(localStorage.getItem(KEY) || "[]");
+      arr.push(row);
+      localStorage.setItem(KEY, JSON.stringify(arr));
+
+      document.getElementById("msg").textContent = "送信しました！協力ありがとう。";
+      e.target.reset();
+
+// 追加：0.8秒後に結果へ
+setTimeout(() => { location.href = "./result_delivery.html"; }, 800);
+
+ });
+
+  </script>
+</body>
+</html>

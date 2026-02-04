@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>結果</title>
+  <link rel="stylesheet" href="../../../assets/app.css" />
+  <script src="./scenario_core.js"></script>
+<script src="./delivery_questions.js"></script>
+
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>結果</h1>
+      <p id="sum"></p>
+
+      <div id="detail"></div>
+
+      <div style="margin-top:16px; display:flex; gap:12px; flex-wrap:wrap;">
+        <a class="btn btn-primary" href="#" id="retryBtn">もう一度（新しい順で）</a>
+        <a class="btn btn-ghost" href="./survey_delivery.html">アンケート（1分）</a>
+        <a class="btn btn-ghost" href="../../../index.html">ホーム</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const TOTAL = 10;
+
+    // 集計
+    const s = (window.QuizState ? QuizState.summary(TOTAL) : { total:TOTAL, correct:0, wrong:TOTAL, state:{answers:{}}});
+    document.getElementById("sum").textContent =
+      `全${s.total}問中：正解 ${s.correct}問／不正解 ${s.wrong}問`;
+
+    // 詳細（1〜10で表示）
+    const d = document.getElementById("detail");
+
+// 出題順を取る（シャッフル順）
+const order = (window.QuizFlow ? QuizFlow.getOrder() : []) || [];
+
+// 問題の短いタイトルを作る（無ければSMS本文の先頭を使う）
+function getTitle(q){
+  try{
+    const qq = window.Delivery10 ? Delivery10.getQ(q) : null;
+    if (!qq) return "";
+    // それっぽいプロパティを順に探す（無ければsmsBody先頭）
+    return (
+      qq.title ||
+      qq.label ||
+      qq.name ||
+      (qq.smsBody ? String(qq.smsBody).slice(0, 18) + "…" : "")
+    );
+  }catch(e){
+    return "";
+  }
+}
+
+let html = "";
+
+// ① 出題された順番（1〜10番目）で表示
+html += "<h3>出題された順番（10問）</h3>";
+if (order.length) {
+  html += "<ol>";
+  for (let pos = 0; pos < order.length; pos++){
+    const q = order[pos];
+    const a = s.state.answers[String(q)];
+    const mark = a ? (a.isCorrect ? "⭕️" : "❌") : "未回答";
+    const title = getTitle(q);
+    const reviewHref = `../${folderName(q)}/reveal_delivery.html?q=${q}`;
+
+    html += `<li>
+      <b>第${pos+1}問目</b>（Q${q}） ${title ? "：" + title : ""} → ${mark}
+      ${a && !a.isCorrect ? ` <a class="btn btn-ghost" style="padding:4px 10px; margin-left:8px;" href="${reviewHref}">ここを見直す</a>` : ""}
+    </li>`;
+  }
+  html += "</ol>";
+} else {
+  html += "<p>出題順データが見つかりませんでした（順番が保存されていない可能性）。</p>";
+}
+
+/* ② 従来どおり「問題番号（Q1〜Q10）」の一覧も残す（どこが間違いか確認用）
+html += "<h3>問題番号ごとの結果（Q1〜Q10）</h3><ul>";
+for (let q=1; q<=TOTAL; q++){
+  const a = s.state.answers[String(q)];
+  const mark = a ? (a.isCorrect ? "⭕️" : "❌") : "未回答";
+  const title = getTitle(q);
+  html += `<li>Q${q}${title ? "：" + title : ""} → ${mark}</li>`;
+}
+html += "</ul>";*/
+
+d.innerHTML = html;
+
+    // もう一度：状態クリア→誤答優先+ランダム→最初の問題へ
+    document.getElementById("retryBtn").addEventListener("click", (e) => {
+      e.preventDefault();
+      try { QuizState.clear(); } catch(e){}
+      try { QuizFlow.startNewRun(TOTAL, { adaptive: true }); } catch(e){}
+      const first = (QuizFlow.getOrder()[0] || 1);
+      location.href = `../${folderName(first)}/quiz_delivery.html?q=${first}`;
+    });
+  </script>
+</body>
+</html>
