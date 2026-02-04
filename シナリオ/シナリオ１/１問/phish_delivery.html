@@ -1,0 +1,914 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>フィッシング体験（Web）</title>
+
+  <link rel="stylesheet" href="../../../assets/app.css" />
+  <script src="../../../assets/logger.js"></script>
+  <script src="../common/scenario_core.js"></script>
+  <script src="../common/delivery_questions.js"></script>
+  <style>
+
+    /* =========================================
+       基本設定
+       ========================================= */
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      margin: 0;
+      background-color: #f0f0f0;
+    }
+
+    /* =========================================
+       スマホ外枠（deviceWrap, device, bezel）
+       ※受信トレイと同じデザイン
+       ========================================= */
+    .deviceWrap{
+      display:flex;
+      justify-content:center;
+      margin-top: 40px;
+    }
+    .device{
+      width:min(390px, 92vw);
+      aspect-ratio: 11 / 19.5;
+      border-radius: 42px;
+      padding: 8px;
+      background: linear-gradient(180deg, #2a2a2a, #313131);
+      border: 1px solid rgba(0,0,0,.85);
+      box-shadow:
+        0 18px 50px rgba(0,0,0,.45),
+        0 0 0 2px rgba(255,255,255,.06) inset;
+      position: relative;
+    }
+    .bezel{
+      height: 100%;
+      border-radius: 34px;
+      overflow:hidden;
+      border: 1px solid rgba(12, 38, 73, 0.25);
+      background: #ffffff; /* iOS背景は白 */
+      position: relative;
+    }
+    .notch{
+      position:absolute;
+      top:5px; left:50%;
+      transform: translateX(-50%);
+      width: 150px; height: 28px;
+      border-radius: 0 0 16px 16px;
+      background: rgba(2,6,23,.85);
+      z-index: 100;
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      pointer-events:none;
+    }
+    .spk{ width:60px; height:6px; border-radius:999px; background: rgba(255,255,255,.16); }
+    .cam{ width:10px; height:10px; border-radius:999px; background: rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.12); }
+
+    /* =========================================
+       画面内レイアウト（詳細画面）
+       ========================================= */
+    .smsScreen{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      background: #ffffff;
+      color:#000;
+      position: relative;
+    }
+
+    /* --- ステータスバー --- */
+    .statusbarReal{
+      height: 44px;
+      padding: 10px 24px 6px;
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      font-size: 14px;
+      font-weight: 600;
+      color: #000;
+      background: #fff; /* 半透明で下のコンテンツを透かすのが本物っぽいが、今回は白固定で安定させる */
+      z-index: 50;
+    }
+    .sbRight{ display:flex; gap:6px; align-items:center; }
+    .bat{
+      width:24px; height:11px; border-radius:3px;
+      border:1px solid #999;
+      position:relative;
+    }
+    .bat::after{
+      content:""; position:absolute; right:-4px; top:3px;
+      width:2px; height:4px; border-radius:1px; background: #999;
+    }
+    .bat i{
+      position:absolute; left:1px; top:1px; bottom:1px;
+      width:90%; border-radius:2px; background: #000; display:block;
+    }
+
+    /* --- iOS風ヘッダー --- */
+    .iosHeader {
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(10px);
+      padding: 0 8px 10px;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      z-index: 40;
+    }
+
+    /* 左上の戻るボタンエリア */
+    .navLeft {
+      position: absolute;
+      top: 6px;
+      left: 8px;
+      display: flex;
+      align-items: center;
+      color: #007AFF;
+      cursor: pointer;
+      font-size: 17px;
+    }
+    .backIcon {
+      font-size: 24px;
+      font-weight: 300;
+      margin-right: 4px;
+      margin-top: -2px;
+    }
+    .unreadBadge {
+      background: #000; /* 未読数バッジは黒 */
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 99px;
+    }
+
+    /* 中央のアバターと情報 */
+    .headerProfile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 2px;
+    }
+    .profileAvatar {
+      width: 48px; height: 48px;
+      background: #9ca3af; /* デフォルトグレー */
+      border-radius: 50%;
+      margin-bottom: 6px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .profileAvatar {
+      width: 48px; height: 48px;
+      background: #9ca3af;
+      border-radius: 50%;
+      margin-bottom: 6px;
+      /* imgタグを中心に配置して切り抜く設定 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    
+    .profileAvatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover; /* 枠に合わせてトリミング */
+    }
+
+    .profileName {
+      font-size: 12px;
+      color: #000;
+      font-weight: 400;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .profileChevron {
+      font-size: 10px;
+      color: #3c3c43;
+      opacity: 0.6;
+      font-weight: 700;
+    }
+
+    /* --- メッセージスレッド --- */
+    .thread{
+      flex:1;
+      overflow-y:auto;
+      padding: 20px 16px;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .dateLabel {
+      text-align: center;
+      color: #8e8e93;
+      font-size: 11px;
+      font-weight: 500;
+      margin-bottom: 16px;
+      line-height: 1.4;
+    }
+
+    /* 左側の吹き出し（受信） */
+    .bubbleRow {
+      display: flex;
+      margin-bottom: 20px;
+      position: relative;
+    }
+    /* iOSのしっぽ（簡易再現） */
+    .bubbleRow::before {
+      content: "";
+      position: absolute;
+      bottom: 0px;
+      left: -6px;
+      width: 20px; height: 20px;
+      background: #e9e9eb;
+      border-bottom-right-radius: 16px;
+      z-index: 0;
+      clip-path: polygon(0 100%, 100% 100%, 100% 0); 
+    }
+    /* 実際にはclip-pathだと難しいので、シンプルな角丸で対応するか、
+       画像に近づけるなら擬似要素で少し工夫する。
+       今回は「左下に少し飛び出た」雰囲気を出すため、単に左下のborder-radiusを小さくする手法をとる。 */
+    
+    .bubble {
+      background: #e9e9eb; /* iOS Gray */
+      color: #000;
+      padding: 10px 14px;
+      border-radius: 18px;
+      border-bottom-left-radius: 4px; /* しっぽの根元 */
+      font-size: 16px;
+      line-height: 1.4;
+      max-width: 75%;
+      position: relative;
+      word-wrap: break-word;
+    }
+    /* しっぽの補完 */
+    .bubble::before {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: -8px;
+      width: 16px; height: 16px;
+      background: #e9e9eb;
+      border-bottom-right-radius: 20px;
+      clip-path: inset(50% 0 0 50%); /* 右下だけ残す的な */
+      /* 完全再現はCSSが複雑になるため、ここでは雰囲気に留める */
+      display: none; 
+    }
+
+    .bubble a {
+      color: #007AFF;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    /* --- 入力エリア（フッター） --- */
+    .composer {
+      padding: 10px 12px 30px; /* 下部はHomeIndicator用に広めに */
+      background: #f9f9f9; /* 入力エリアの背景は少しグレー */
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-top: 1px solid #d1d1d6;
+    }
+
+    .plusBtn {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: #d1d1d6;
+      color: #fff;
+      font-size: 24px;
+      font-weight: 300;
+      display: grid;
+      place-items: center;
+      padding-bottom: 2px;
+      flex-shrink: 0;
+    }
+    
+    .inputPill {
+      flex: 1;
+      height: 36px;
+      border-radius: 18px;
+      border: 1px solid #d1d1d6;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 16px;
+      color: #c7c7cc; /* placeholder color */
+    }
+
+    .voiceIcon {
+      width: 24px;
+      display: flex;
+      justify-content: center;
+      gap: 3px;
+      align-items: center;
+      height: 24px;
+    }
+    .voiceBar {
+      width: 2px;
+      background: #000;
+      border-radius: 1px;
+    }
+
+    /* ホームバー */
+    .homeIndicator{
+      position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+      width: 130px; height: 5px;
+      background: #000;
+      border-radius: 10px;
+      z-index: 100;
+    }
+
+    /* メニューオーバーレイ（ロジック用） */
+    .sheetOverlay{
+      position:absolute; inset:0;
+      background: rgba(0,0,0,.4);
+      display:none;
+      align-items:flex-end;
+      z-index: 200;
+    }
+    .sheetOverlay.show{ display:flex; }
+    .sheet{
+      width: 96%;
+      margin: 0 auto 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sheetGroup {
+      background: rgba(245,245,245,0.9);
+      backdrop-filter: blur(20px);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .sheetBtn {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+      padding: 16px;
+      font-size: 18px;
+      color: #007AFF;
+      text-align: center;
+      cursor: pointer;
+    }
+    .sheetBtn:last-child { border-bottom: none; }
+    .sheetBtn.bold { font-weight: 600; }
+    .sheetBtn.cancel {
+      background: #fff;
+      border-radius: 14px;
+      font-weight: 600;
+      color: #007AFF;
+    }
+    .sheetMessage {
+      padding: 12px;
+      text-align: center;
+      font-size: 13px;
+      color: #8e8e93;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+
+  
+
+    /* ===== phish（Web画面）をsms_deliveryと同じ端末UIに載せる ===== */
+    .webScreen{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      background:#ffffff;
+      color:#000;
+      position: relative;
+    }
+
+    /* Safari風バー（下のSMSへ戻る等は無し） */
+    .safariBar{
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      padding: 6px 10px 10px;
+      display:flex;
+      flex-direction:column;
+      gap: 6px;
+      z-index: 40;
+    }
+    .safariTopRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      padding: 0 4px;
+      color: #007AFF;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .safariCenter{
+      flex:1;
+      display:flex;
+      justify-content:center;
+      color:#111827;
+      font-weight:600;
+    }
+    .safariAddr{
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      width: 100%;
+      background: rgba(60,60,67,0.10);
+      border: 1px solid rgba(60,60,67,0.12);
+      border-radius: 14px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color:#111827;
+    }
+    .lockDot{
+      width: 8px; height: 8px; border-radius: 999px;
+      background: #10b981;
+      box-shadow: 0 0 0 2px rgba(16,185,129,0.18);
+      flex-shrink: 0;
+    }
+    .addrText{
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex:1;
+    }
+    .safariPill{
+      font-size: 11px;
+      color:#6b7280;
+      padding-left: 4px;
+    }
+
+    /* Webコンテンツはスクロール */
+    .webScroll{
+      flex: 1;
+      overflow-y: auto;
+      background: #fff;
+      position: relative;
+      padding-bottom: 24px;
+    
+      padding-bottom: 52px;
+    }
+
+    /* phish側の既存 .topbar などが外側と被らないように、スマホ内は専用クラス名に寄せる */
+    .siteTopbar{
+      background: #f0f2f5;
+      padding: 12px 16px;
+      display:flex;
+      align-items:center;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 10px;
+    }
+
+    .siteTopbar{
+      min-height: 44px;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      background: #f2f3f5;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    .siteTopbar-icon{
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #0055aa, #003366);
+      border-radius: 50%;
+      display:flex; align-items:center; justify-content:center;
+      color:#fff; font-weight:700; font-size: 18px;
+      margin-right: 10px;
+      flex-shrink:0;
+    }
+    .siteTopbar-title{ font-size: 14px; font-weight: 700; color:#333; }
+
+    /* phishフォームの見た目はそのまま（元CSSを活かす） */
+
+
+    /* ===== フォームUI（入力しやすく） ===== */
+    .content{
+      padding: 14px 16px 28px;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+    .content p{
+      margin: 0 0 12px;
+    }
+    .input-group{
+      margin: 14px 0;
+    }
+    .input-group label{
+      display:block;
+      font-size: 12px;
+      font-weight: 700;
+      color: #374151;
+      margin: 0 0 6px;
+      letter-spacing: .02em;
+    }
+    .input-group input{
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      background: #fff;
+      color: #111827;
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .input-group input:focus{
+      border-color: rgba(59,130,246,0.9);
+      box-shadow: 0 0 0 4px rgba(59,130,246,0.15);
+    }
+    .error-msg{
+      display:none;
+      margin-top: 6px;
+      font-size: 12px;
+      color: #ef4444;
+      line-height: 1.2;
+    }
+    .error-msg.show{ display:block; }
+    .input-group input.error{
+      border-color: rgba(239,68,68,0.95);
+      background: rgba(239,68,68,0.05);
+    }
+    .btn-submit{
+      width: 100%;
+      border: none;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-size: 16px;
+      font-weight: 800;
+      background: #2563eb;
+      color: #fff;
+      box-shadow: 0 10px 24px rgba(37,99,235,0.25);
+      cursor:pointer;
+      margin-top: 6px;
+    }
+    .btn-submit:active{
+      transform: translateY(1px);
+      box-shadow: 0 7px 18px rgba(37,99,235,0.22);
+    }
+
+    /* オーバーレイは端末内で完結 */
+    .overlay-backdrop{
+      position:absolute;
+      inset:0;
+      display:none;                /* ★デフォルトで非表示（入力を邪魔しない） */
+      align-items:center;
+      justify-content:center;
+      background: rgba(17,24,39,0.45);
+      z-index: 999;
+    }
+    .overlay-backdrop.show{
+      display:flex;
+    }
+
+
+    /* ===== 入力時の文字ブレ対策（フォーム操作を安定化） ===== */
+    html, body{
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+    /* 端末内の文字をくっきり表示 */
+    .webScreen, .webScreen *{
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    /* iOS/Androidでの自動ズーム防止（16px以上）＋入力の安定化 */
+    .webScreen input,
+    .webScreen textarea,
+    .webScreen select,
+    .webScreen button{
+      font-size: 16px;
+    }
+    .webScreen input{
+      line-height: 1.2;
+    }
+    /* スクロール内での操作感を安定 */
+    .webScroll{
+      -webkit-overflow-scrolling: touch;
+    }
+
+
+
+    .popup-box{
+      width: min(320px, 86%);
+      background: #ffffff;
+      border: 2px solid rgba(0,0,0,0.12);
+      border-radius: 16px;
+      padding: 16px 14px;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.22);
+      text-align: center;
+    }
+    .popup-title{ font-size: 18px; font-weight: 900; color:#111827; margin: 0 0 8px; }
+    .popup-text{ font-size: 13px; color:#374151; margin: 0 0 10px; line-height: 1.6; }
+    .popup-note{ font-size: 12px; color:#6b7280; margin-top: 6px; }
+
+    /* --- スマホ枠内用 Safariバー --- */
+
+/* スマホ画面の枠（親要素）の設定 */
+.screen {
+  position: relative; /* 中身の配置基準にする */
+  padding-bottom: 60px !important; /* バーの分だけ余白を確保して、コンテンツが隠れないようにする */
+  overflow: hidden; /* はみ出し防止 */
+}
+
+/* バー本体 */
+.safari-bottom-bar {
+  position: absolute; /* 画面に対して絶対配置 */
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 44px;
+  background-color: #f8f8f8; /* Safariっぽいグレー */
+  border-top: 1px solid #b2b2b2;
+  
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  
+  padding: 0 12px;
+  box-sizing: border-box;
+  z-index: 100; /* コンテンツより手前に表示 */
+  
+  /* 念のためフォント設定 */
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* アイコン共通 */
+.safari-icon {
+  width: 20px;
+  height: 20px;
+  color: #007aff; /* iOS Blue */
+  cursor: pointer;
+}
+.safari-icon.disabled { color: #c7c7cc; cursor: default; }
+
+/* グループ分け */
+.safari-nav-group, .safari-action-group {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+/* URL表示エリア */
+.safari-address-fake {
+  flex-grow: 1;
+  text-align: center;
+  font-size: 12px;
+  color: #000;
+  font-weight: 500;
+  margin: 0 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  
+  /* 鍵アイコンなどをつける場合の余地 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+}
+    </style>
+</head>
+
+<body>
+  <!-- sms_deliveryと同じ上部UI -->
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <div class="btitle">スミッシング</div>
+          <div class="bmeta">実際の操作で判断しよう</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card" style="padding-bottom: 55px;">
+      <div class="kv">
+        <span class="badge warn">現在の状況</span>
+        <span class="small"><h3>偽の再配達受付サイトが開きました。<br>情報を入力するとどうなるでしょうか？</h3></span>
+      </div>
+      <div class="hr"></div>
+
+      
+
+      <div class="deviceWrap">
+        <div class="device">
+          <div class="notch"><span class="spk"></span><span class="cam"></span></div>
+
+          <div class="bezel">
+            <div class="webScreen" id="webScreen">
+              <!-- statusbar は sms_delivery と同じ -->
+              <div class="statusbarReal">
+                <div id="timeText">14:03</div>
+                <div class="sbRight">
+                  <span>4G</span>
+                  <span class="bat"><i></i></span>
+                  <span style="font-size:12px">95</span>
+                </div>
+
+                <div class="safari-bottom-bar">
+        <div class="safari-nav-group">
+          <svg class="safari-icon disabled" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          <svg class="safari-icon disabled" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </div>
+
+        <div class="safari-address-fake">
+          <span style="font-size:10px">🔒</span> example.com
+        </div>
+
+        <div class="safari-action-group">
+          <svg class="safari-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+          <svg class="safari-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+          <svg class="safari-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+        </div>
+      </div>
+              </div>
+
+              <!-- Safari風バー -->
+              <div class="safariBar">
+                <div class="safariTopRow">
+                  <div id="safariBack" style="opacity:.65;">‹</div>
+                  <div class="safariCenter">Safari</div>
+                  <div id="safariReload" style="opacity:.65;">⟳</div>
+                </div>
+                <div class="safariAddr">
+                  <span class="lockDot"></span>
+                  <span class="addrText" id="addrText">https://smp.docomo-pay.example/confirm</span>
+                </div>
+                <div class="safariPill">※学習用の疑似画面です（送信・保存しません）</div>
+              </div>
+
+              <div class="webScroll">
+                <div class="siteTopbar">
+                <div class="siteTopbar-icon">宅</div>
+                <div class="siteTopbar-title">〇〇急便 再配達受付</div>
+              </div>
+
+              <div class="content">
+                <p style="font-size:12px; color:#444; margin-bottom:15px; line-height:1.5;">
+                  ご不在のためお荷物を持ち帰りました。<br>
+                  再配達をご希望の場合は、下記フォームよりご依頼ください。
+                </p>
+
+                <div class="input-group">
+                  <label>お名前</label>
+                  <input type="text" id="name" placeholder="例：宅配 太郎" enterkeyhint="next">
+                  <div class="error-msg">お名前を入力してください</div>
+                </div>
+
+                <div class="input-group">
+                  <label>電話番号 (ハイフンなし)</label>
+                  <input type="tel" id="phone" placeholder="例：09012345678" enterkeyhint="next">
+                  <div class="error-msg">電話番号を入力してください</div>
+                </div>
+
+                <div class="input-group">
+                  <label>ご住所</label>
+                  <input type="text" id="addr" placeholder="例：東京都〇〇区..." enterkeyhint="done">
+                  <div class="error-msg">ご住所を入力してください</div>
+                </div>
+
+                <button class="btn-submit" onclick="handleSubmit()">再配達を依頼する</button>
+              </div>
+              </div>
+
+              <div class="homeIndicator"></div>
+
+              <div id="overlay" class="overlay-backdrop">
+              <div class="popup-box">
+                <span class="popup-icon">⚠️</span>
+                <h2 class="popup-title">送信中…</h2>
+                <p class="popup-text">
+                  入力内容を確認しています…<br>
+                  しばらくお待ちください。<br>
+                  <strong>名前・電話番号・住所</strong>が<br>
+                  悪用される危険があります。
+                </p>
+                
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+// 時計更新
+  function updateClock() {
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2,"0");
+    const mm = String(d.getMinutes()).padStart(2,"0");
+    const t = document.getElementById("timeText");
+    if (t) {
+      const next = `${hh}:${mm}`;
+      if (t.textContent !== next) t.textContent = next;
+    }
+  }
+  setInterval(updateClock, 30000);
+  updateClock();
+
+  // Enterキーでのフォーカス移動処理
+  const inputs = [
+    document.getElementById("name"),
+    document.getElementById("phone"),
+    document.getElementById("addr")
+  ];
+
+  inputs.forEach((input, index) => {
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const nextInput = inputs[index + 1];
+        if (nextInput) {
+          nextInput.focus();
+        } else {
+          input.blur();
+        }
+      }
+    });
+  });
+
+  // クエリパラメータ処理
+  const params = new URLSearchParams(location.search);
+  const q = params.get("q") || "1";
+
+  // ログ：ページ閲覧
+  try {
+    if (window.SecLogger) {
+      SecLogger.log("page_view", "phish_form", { q });
+    }
+  } catch(e){}
+
+  // 送信ボタン処理
+  function handleSubmit() {
+    const nameInput = document.getElementById("name");
+    const phoneInput = document.getElementById("phone");
+    const addrInput = document.getElementById("addr");
+    let hasError = false;
+
+    const validate = (input) => {
+      const msg = input.parentElement.querySelector('.error-msg');
+      if (!input.value.trim()) {
+        input.classList.add('error');
+        msg.classList.add('show');
+        hasError = true;
+      } else {
+        input.classList.remove('error');
+        msg.classList.remove('show');
+      }
+    };
+
+    validate(nameInput);
+    validate(phoneInput);
+    validate(addrInput);
+
+    if (hasError) return;
+
+    // ログ：入力してしまった
+    try {
+      SecLogger.log("decision", "phished_input_complete", {
+        q,
+        name_len: nameInput.value.length,
+        phone_len: phoneInput.value.length,
+        addr_len: addrInput.value.length
+      });
+    } catch(e){}
+
+    // オーバーレイを表示（CSSアニメーションでポップアップが震えます）
+    const overlay = document.getElementById("overlay");
+    overlay.classList.add("show");
+
+    // 少し待って「結果画面」へ遷移（学習用）
+    setTimeout(() => {
+      location.href = `./phish_result_delivery.html?route=phished&q=${q}`;
+    }, 900);
+}
+
+
+// Safariアドレス表示：問題データがあればそれを出す
+try {
+  const addrEl = document.getElementById("addrText");
+  if (addrEl) {
+    const params = new URLSearchParams(location.search);
+    const q = Number(params.get("q") || "1");
+    if (window.SC && SC.sms && SC.sms.urlText) {
+      addrEl.textContent = SC.sms.urlText;
+    } else if (window.Delivery10 && typeof Delivery10.getQ === "function") {
+      const d = Delivery10.getQ(q);
+      if (d && d.urlText) addrEl.textContent = d.urlText;
+    }
+  }
+} catch(e) {}
+
+      </script>
+    </div>
+  </div>
+</body>
+</html>
