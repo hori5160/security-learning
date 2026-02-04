@@ -5,20 +5,21 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>結果</title>
   <link rel="stylesheet" href="../../../assets/app.css" />
-  <script src="./scenario_core.js"></script>
-<script src="./delivery_questions.js"></script>
-
+  <script src="../../../assets/logger.js"></script>
+  <script src="../common/scenario_core.js"></script>
 </head>
 <body>
   <div class="container">
     <div class="card">
       <h1>結果</h1>
+      <p class="small" id="who"></p>
       <p id="sum"></p>
 
       <div id="detail"></div>
 
       <div style="margin-top:16px; display:flex; gap:12px; flex-wrap:wrap;">
         <a class="btn btn-primary" href="#" id="retryBtn">もう一度（新しい順で）</a>
+        <a class="btn btn-good" href="#" id="csvBtn">📊 ログをCSVで保存</a>
         <a class="btn btn-ghost" href="./survey_delivery.html">アンケート（1分）</a>
         <a class="btn btn-ghost" href="../../../index.html">ホーム</a>
       </div>
@@ -28,6 +29,19 @@
   <script>
     const TOTAL = 10;
 
+// 参加者ID表示（匿名ラベル）
+try {
+  const u = localStorage.getItem("sec_learn_user_label") || "(未設定)";
+  const sid = localStorage.getItem("sec_learn_session_id") || "(未設定)";
+  const who = document.getElementById("who");
+  if (who) who.textContent = `あなたのID：${u}（session: ${sid}）`;
+
+  // 結果ページ閲覧もログに残す（label未設定ならここで入力が出ます）
+  if (window.SecLogger && typeof SecLogger.log === "function") {
+    SecLogger.log("page_view", "result_delivery", { runId: (QuizFlow.ensureOrder(10, { adaptive: true }).runId || "no_run") });
+  }
+} catch(e) {}
+
     // 集計
     const s = (window.QuizState ? QuizState.summary(TOTAL) : { total:TOTAL, correct:0, wrong:TOTAL, state:{answers:{}}});
     document.getElementById("sum").textContent =
@@ -35,61 +49,30 @@
 
     // 詳細（1〜10で表示）
     const d = document.getElementById("detail");
+    let html = "<h3>各問題の結果</h3><ul>";
+    for (let i=1; i<=TOTAL; i++){
+      const a = s.state.answers[String(i)];
+      html += `<li>第${i}問：${a ? (a.isCorrect ? "⭕️" : "❌") : "未回答"}</li>`;
+    }
+    html += "</ul>";
+    d.innerHTML = html;
 
-// 出題順を取る（シャッフル順）
-const order = (window.QuizFlow ? QuizFlow.getOrder() : []) || [];
-
-// 問題の短いタイトルを作る（無ければSMS本文の先頭を使う）
-function getTitle(q){
-  try{
-    const qq = window.Delivery10 ? Delivery10.getQ(q) : null;
-    if (!qq) return "";
-    // それっぽいプロパティを順に探す（無ければsmsBody先頭）
-    return (
-      qq.title ||
-      qq.label ||
-      qq.name ||
-      (qq.smsBody ? String(qq.smsBody).slice(0, 18) + "…" : "")
-    );
-  }catch(e){
-    return "";
-  }
+// CSV保存（友達に送ってもらう用）
+const csvBtn = document.getElementById("csvBtn");
+if (csvBtn) {
+  csvBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    try {
+      if (window.SecLogger && typeof SecLogger.exportCSV === "function") {
+        SecLogger.exportCSV();
+      } else {
+        alert("ログ保存ができません（logger.js が読み込めていないかも）");
+      }
+    } catch (err) {
+      alert("ログ保存でエラーが起きました。");
+    }
+  });
 }
-
-let html = "";
-
-// ① 出題された順番（1〜10番目）で表示
-html += "<h3>出題された順番（10問）</h3>";
-if (order.length) {
-  html += "<ol>";
-  for (let pos = 0; pos < order.length; pos++){
-    const q = order[pos];
-    const a = s.state.answers[String(q)];
-    const mark = a ? (a.isCorrect ? "⭕️" : "❌") : "未回答";
-    const title = getTitle(q);
-    const reviewHref = `../${folderName(q)}/reveal_delivery.html?q=${q}`;
-
-    html += `<li>
-      <b>第${pos+1}問目</b>（Q${q}） ${title ? "：" + title : ""} → ${mark}
-      ${a && !a.isCorrect ? ` <a class="btn btn-ghost" style="padding:4px 10px; margin-left:8px;" href="${reviewHref}">ここを見直す</a>` : ""}
-    </li>`;
-  }
-  html += "</ol>";
-} else {
-  html += "<p>出題順データが見つかりませんでした（順番が保存されていない可能性）。</p>";
-}
-
-/* ② 従来どおり「問題番号（Q1〜Q10）」の一覧も残す（どこが間違いか確認用）
-html += "<h3>問題番号ごとの結果（Q1〜Q10）</h3><ul>";
-for (let q=1; q<=TOTAL; q++){
-  const a = s.state.answers[String(q)];
-  const mark = a ? (a.isCorrect ? "⭕️" : "❌") : "未回答";
-  const title = getTitle(q);
-  html += `<li>Q${q}${title ? "：" + title : ""} → ${mark}</li>`;
-}
-html += "</ul>";*/
-
-d.innerHTML = html;
 
     // もう一度：状態クリア→誤答優先+ランダム→最初の問題へ
     document.getElementById("retryBtn").addEventListener("click", (e) => {
