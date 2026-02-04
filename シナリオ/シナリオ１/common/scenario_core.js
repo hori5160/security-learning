@@ -45,6 +45,14 @@ function folderName(q){              // 1 -> "１問"
     setAnswer(q, isCorrect, choice, correct) {
       const st = this.load();
       st.answers[String(q)] = { q, isCorrect: !!isCorrect, choice, correct, at: Date.now() };
+
+      // ★追加：回答（正誤）をイベントログにも残す（レポート用）
+      try {
+        if (window.SecLogger && typeof SecLogger.log === "function") {
+          SecLogger.log("decision", "quiz_answer", { q, isCorrect: !!isCorrect, choice, correct });
+        }
+      } catch (e) {}
+
       this.save(st);
     },
 
