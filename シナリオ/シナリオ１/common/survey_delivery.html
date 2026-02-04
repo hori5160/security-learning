@@ -4,26 +4,210 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>学習後アンケート</title>
+
   <link rel="stylesheet" href="../../../assets/app.css" />
+  <script src="../../../assets/logger.js"></script>
   <script src="../common/scenario_core.js"></script>
+
+  <!-- app.cssは触らず、このページだけ入力しやすくする -->
+  <style>
+    .note{ font-size: .95rem; opacity:.85; line-height:1.4; }
+    .group{ margin-top:14px; }
+    .legend{ font-weight:700; margin-bottom:8px; display:block; }
+    .scale{
+      display:grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap:8px;
+      margin-top:8px;
+    }
+    .scale input{ display:none; }
+    .opt{
+      border:1px solid rgba(0,0,0,.15);
+      border-radius:12px;
+      padding:10px 6px;
+      text-align:center;
+      cursor:pointer;
+      user-select:none;
+      background:#fff;
+      font-weight:700;
+    }
+    .opt small{
+      display:block;
+      margin-top:4px;
+      font-weight:400;
+      opacity:.75;
+      font-size:.78rem;
+      line-height:1.15;
+    }
+    .scale input:checked + .opt{
+      outline:2px solid rgba(0,0,0,.55);
+      box-shadow: 0 2px 10px rgba(0,0,0,.08);
+    }
+    .pidRow{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .pidRow .input{ flex:1 1 220px; }
+    .pill{
+      display:inline-block;
+      padding:4px 10px;
+      border-radius:999px;
+      background:rgba(0,0,0,.06);
+      font-size:.85rem;
+    }
+    textarea.input{ min-height:110px; }
+    .err{ color:#b00020; font-weight:700; }
+
+    /* 5段階を「縦の大きいカード」にする */
+.likert{
+  display:grid;
+  gap:10px;
+  margin-top:8px;
+}
+.likert label{ display:block; }
+.likert input{
+  position:absolute;
+  opacity:0;
+  pointer-events:none;
+}
+.lopt{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:14px 12px;
+  border:1px solid rgba(0,0,0,.15);
+  border-radius:14px;
+  background:#fff;
+  cursor:pointer;
+  user-select:none;
+  font-weight:700;
+}
+.dot{
+  width:18px;
+  height:18px;
+  border-radius:50%;
+  border:2px solid rgba(0,0,0,.35);
+  flex:0 0 18px;
+}
+.likert input:checked + .lopt{
+  outline:2px solid rgba(0,0,0,.55);
+  box-shadow:0 2px 10px rgba(0,0,0,.08);
+}
+.likert input:checked + .lopt .dot{
+  background:rgba(0,0,0,.55);
+  border-color:rgba(0,0,0,.55);
+}
+.sub{ font-weight:400; opacity:.75; }
+
+  </style>
 </head>
+
 <body>
   <div class="container">
     <div class="card">
       <h1>学習後アンケート（1分）</h1>
+      <p class="note">
+        本名は入力しないでください。<br>
+        5段階評価：<b>1=まったくそう思わない</b> 〜 <b>5=とてもそう思う</b>
+      </p>
 
       <form id="f">
-        <label>Q1. 見分け方が分かった（1〜5）</label>
-        <input class="input" name="q1" type="number" min="1" max="5" required>
+        <div class="group">
+          <label class="legend">参加者ID（例：A01）</label>
+          <div class="pidRow">
+            <input class="input" name="pid" id="pid" maxlength="32" placeholder="A01" required>
+            <span class="pill">※IDはログと紐づきます</span>
+          </div>
+        </div>
 
-        <label style="margin-top:12px; display:block;">Q2. 自信がついた（1〜5）</label>
-        <input class="input" name="q2" type="number" min="1" max="5" required>
+        <div class="group">
+  <span class="legend">Q1. SMSやリンクの見分け方・対処法がわかった</span>
+  <div class="likert">
+    <label><input type="radio" name="q1" value="1" required>
+      <span class="lopt"><span class="dot"></span>全くそう思わない</span>
+    </label>
+    <label><input type="radio" name="q1" value="2">
+      <span class="lopt"><span class="dot"></span>あまりそう思わない</span>
+    </label>
+    <label><input type="radio" name="q1" value="3">
+      <span class="lopt"><span class="dot"></span>どちらでもない</span>
+    </label>
+    <label><input type="radio" name="q1" value="4">
+      <span class="lopt"><span class="dot"></span>まあそう思う</span>
+    </label>
+    <label><input type="radio" name="q1" value="5">
+      <span class="lopt"><span class="dot"></span>とてもそう思う</span>
+    </label>
+  </div>
+</div>
 
-        <label style="margin-top:12px; display:block;">Q3. 体験は役に立った（1〜5）</label>
-        <input class="input" name="q3" type="number" min="1" max="5" required>
+        <div class="group">
+  <span class="legend">Q2. 次からリンクを開く前に確認する意識が高まった</span>
+  <div class="likert">
+    <label><input type="radio" name="q1" value="1" required>
+      <span class="lopt"><span class="dot"></span>全くそう思わない</span>
+    </label>
+    <label><input type="radio" name="q1" value="2">
+      <span class="lopt"><span class="dot"></span>あまりそう思わない</span>
+    </label>
+    <label><input type="radio" name="q1" value="3">
+      <span class="lopt"><span class="dot"></span>どちらでもない</span>
+    </label>
+    <label><input type="radio" name="q1" value="4">
+      <span class="lopt"><span class="dot"></span>まあそう思う</span>
+    </label>
+    <label><input type="radio" name="q1" value="5">
+      <span class="lopt"><span class="dot"></span>とてもそう思う</span>
+    </label>
+  </div>
+</div>
 
-        <label style="margin-top:12px; display:block;">Q4. 難しかった点（自由記述）</label>
-        <textarea class="input" name="free" rows="4"></textarea>
+
+       <div class="group">
+  <span class="legend">Q3. この体験は現実でも役に立つと思う</span>
+  <div class="likert">
+    <label><input type="radio" name="q1" value="1" required>
+      <span class="lopt"><span class="dot"></span>全くそう思わない</span>
+    </label>
+    <label><input type="radio" name="q1" value="2">
+      <span class="lopt"><span class="dot"></span>あまりそう思わない</span>
+    </label>
+    <label><input type="radio" name="q1" value="3">
+      <span class="lopt"><span class="dot"></span>どちらでもない</span>
+    </label>
+    <label><input type="radio" name="q1" value="4">
+      <span class="lopt"><span class="dot"></span>まあそう思う</span>
+    </label>
+    <label><input type="radio" name="q1" value="5">
+      <span class="lopt"><span class="dot"></span>とてもそう思う</span>
+    </label>
+  </div>
+</div>
+
+
+        <div class="group">
+  <span class="legend">Q4. 難易度はちょうど良かった</span>
+  <div class="likert">
+    <label><input type="radio" name="q4" value="1" required>
+      <span class="lopt"><span class="dot"></span>簡単すぎる</span>
+    </label>
+    <label><input type="radio" name="q4" value="2">
+      <span class="lopt"><span class="dot"></span>やや簡単</span>
+    </label>
+    <label><input type="radio" name="q4" value="3">
+      <span class="lopt"><span class="dot"></span>ちょうど良い</span>
+    </label>
+    <label><input type="radio" name="q4" value="4">
+      <span class="lopt"><span class="dot"></span>やや難しい</span>
+    </label>
+    <label><input type="radio" name="q4" value="5">
+      <span class="lopt"><span class="dot"></span>難しすぎる</span>
+    </label>
+  </div>
+</div>
+
+
+        <div class="group">
+          <label class="legend">Q6. 分かりにくかった点 / 改善してほしい点（任意）</label>
+          <textarea class="input" name="free" rows="4" placeholder="例：正解の理由をもう少し短くしてほしい、など"></textarea>
+        </div>
 
         <button class="btn btn-primary" style="margin-top:16px; width:100%;">送信</button>
       </form>
@@ -39,33 +223,87 @@
 
   <script>
     const KEY = "sec_delivery10_v1_survey";
-    const runId = (QuizFlow.ensureOrder(10, { adaptive: true }).runId || "no_run");
+    const order = QuizFlow.ensureOrder(10, { adaptive: true });
+    const runId = (order.runId || "no_run");
+
+    // 参加者IDの初期値（URLの ?u=A01 か localStorage を優先）
+    (function(){
+      try{
+        const p = new URLSearchParams(location.search);
+        const u = (p.get("u") || p.get("user") || p.get("id") || "").trim();
+        const saved = localStorage.getItem("sec_learn_user_label") || "";
+        const el = document.getElementById("pid");
+        if (el) el.value = (u || saved || "").slice(0,32);
+        if (u) localStorage.setItem("sec_learn_user_label", u.slice(0,32));
+
+        if (window.SecLogger && typeof SecLogger.log === "function") {
+          SecLogger.log("page_view", "survey_delivery", { runId });
+        }
+      }catch(e){}
+    })();
+
+    function getCheckedValue(name){
+      const el = document.querySelector(`input[name="${name}"]:checked`);
+      return el ? Number(el.value) : null;
+    }
+    function getCheckedList(name){
+      return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(x => x.value);
+    }
 
     document.getElementById("f").addEventListener("submit", (e) => {
       e.preventDefault();
-      const fd = new FormData(e.target);
+
+      const pidEl = document.getElementById("pid");
+      const pid = (String(pidEl.value || "")).trim().slice(0, 32) || "anon";
+
+      const q1 = getCheckedValue("q1");
+      const q2 = getCheckedValue("q2");
+      const q3 = getCheckedValue("q3");
+      const q4 = getCheckedValue("q4");
+
+      if ([q1,q2,q3,q4].some(v => v === null)) {
+        const msg = document.getElementById("msg");
+        msg.className = "err";
+        msg.textContent = "未回答の項目があります（Q1〜Q4を選んでください）。";
+        return;
+      }
+
+      // 参加者IDは次回以降も自動入力されるように保存
+      try { localStorage.setItem("sec_learn_user_label", pid); } catch(e) {}
+
+      const free = String(new FormData(e.target).get("free") || "");
+      const helpful = getCheckedList("helpful");
 
       const row = {
         runId,
         at: Date.now(),
-        q1: Number(fd.get("q1")),
-        q2: Number(fd.get("q2")),
-        q3: Number(fd.get("q3")),
-        free_len: String(fd.get("free") || "").length
+        pid,
+        session_id: (localStorage.getItem("sec_learn_session_id") || "no_session"),
+        q1, q2, q3, q4,
+        helpful,
+        free_len: free.length
       };
 
       const arr = JSON.parse(localStorage.getItem(KEY) || "[]");
       arr.push(row);
       localStorage.setItem(KEY, JSON.stringify(arr));
 
-      document.getElementById("msg").textContent = "送信しました！協力ありがとう。";
+      // ログにも残す（あとでスプレッドシートにまとまる）
+      try {
+        if (window.SecLogger && typeof SecLogger.log === "function") {
+          SecLogger.log("survey", "delivery10_v1", row);
+        }
+      } catch(e) {}
+
+      const msg = document.getElementById("msg");
+      msg.className = "";
+      msg.textContent = "送信しました！協力ありがとう。";
+
+      // pidは残して他だけクリア
+      const keepPid = pidEl.value;
       e.target.reset();
-
-// 追加：0.8秒後に結果へ
-setTimeout(() => { location.href = "./result_delivery.html"; }, 800);
-
- });
-
+      pidEl.value = keepPid;
+    });
   </script>
 </body>
 </html>
