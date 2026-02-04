@@ -309,6 +309,12 @@
     document.getElementById("startSmishing").addEventListener("click", (e) => {
   e.preventDefault();
 
+  // ★追加：ID（?u=A01）を次ページへ引き継ぐ
+  const p = new URLSearchParams(location.search);
+  const uParam = (p.get("u") || p.get("user") || p.get("id") || "").trim();
+  const uSaved = (localStorage.getItem("sec_learn_user_label") || "").trim();
+  const u = (uParam || uSaved);
+
   // ① 前回の回答を消す（やり直し用）
   QuizState.clear();
 
@@ -318,8 +324,10 @@
   // ③ シャッフル順の先頭から開始する（ここが超重要）
   const first = (QuizFlow.getOrder()[0] || 1);
 
+  const uTail = u ? `&u=${encodeURIComponent(u)}` : "";
+
   location.href =
-    `./シナリオ/シナリオ１/${folderName(first)}/quiz_delivery.html?q=${first}`;
+    `./シナリオ/シナリオ１/${folderName(first)}/quiz_delivery.html?q=${first}${uTail}`;
 });
   </script>
 </body>
