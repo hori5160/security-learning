@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>レポート（結果＋アンケート）</title>
+  <link rel="stylesheet" href="./assets/app.css" />
+  <script src="./assets/logger.js"></script>
+  <script src="./シナリオ/シナリオ１/common/delivery_questions.js"></script>
+  <style>
+    .toolbar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .inputSm{ padding:10px; border:1px solid #cbd5e1; border-radius:14px; background:#fff; }
+    table{ width:100%; border-collapse:collapse; }
+    th,td{ border-bottom:1px solid rgba(226,232,240,.8); padding:10px 8px; text-align:left; vertical-align:top; }
+    th{ font-size:13px; color:var(--muted); }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; }
+    .tag{ display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; border:1px solid var(--line); background:#fff; font-size:12px; }
+    .tag.good{ color:var(--good); border-color:rgba(22,163,74,.25); background:rgba(22,163,74,.08); }
+    .tag.bad{ color:var(--bad); border-color:rgba(220,38,38,.25); background:rgba(220,38,38,.08); }
+    .tag.warn{ color:#92400e; border-color:rgba(245,158,11,.25); background:rgba(245,158,11,.10); }
+    details{ background:#fff; border:1px solid rgba(226,232,240,.8); border-radius:14px; padding:10px 12px; }
+    details > summary{ cursor:pointer; font-weight:800; }
+    .muted{ color:var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <div class="btitle">レポート（結果＋アンケート）</div>
+          <div class="bmeta">この端末のログ／またはCSVインポートで集計</div>
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip" id="statChip">0人</span>
+        <a class="btn btn-ghost" href="./index.html">ホーム</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="container stack">
+    <div class="card">
+      <div class="toolbar">
+        <input id="qSearch" class="inputSm" placeholder="IDで検索（例：A01）" />
+        <button class="btn btn-ghost" id="btnReload">この端末のログで更新</button>
+        <label class="btn btn-ghost" style="cursor:pointer;">
+          CSVを読み込む
+          <input id="csvFile" type="file" accept=".csv,text/csv" style="display:none;">
+        </label>
+        <button class="btn btn-warn" id="btnClearView">検索をクリア</button>
+      </div>
+      <p class="small">
+        ✅ <b>誰がどの問題を間違えたか</b> と <b>アンケート回答</b> を1ページで見られます。<br>
+        ※このページは「この端末に残っているログ」か、「あなたが読み込んだCSV」だけを表示します（友達端末のログは勝手には見えません）。
+      </p>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h2>参加者ごとの結果</h2>
+        <div id="byUser"></div>
+      </div>
+
+      <div class="card">
+        <h2>アンケート一覧</h2>
+        <div id="surveyList"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>詳細（クリックで展開）</h2>
+      <div id="details"></div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const LS_EVENTS = "sec_learn_events";
+
+  function safeJson(v){ try { return JSON.parse(v); } catch(e){ return null; } }
+  function normMeta(m){
+    if (!m) return {};
+    if (typeof m === "string") return safeJson(m) || {};
+    return m;
+  }
+  function parseIso(ts){
+    const t = Date.parse(ts);
+    return Number.isFinite(t) ? t : 0;
+  }
+  function loadLocalEvents(){
+    try { return JSON.parse(localStorage.getItem(LS_EVENTS) || "[]"); }
+    catch(e){ return []; }
+  }
+
+  // Minimal CSV parser (quoted commas supported)
+  function parseCSV(text){
+    const lines = text.replace(/\r\n/g,"\n").replace(/\r/g,"\n").split("\n").filter(x=>x.trim().length);
+    if (!lines.length) return [];
+    const parseLine = (s)=>{
+      const out=[]; let cur=""; let inQ=false;
+      for(let i=0;i<s.length;i++){
+        const c=s[i];
+        if(inQ){
+          if(c==='\"'){
+            if(s[i+1]==='\"'){ cur+='\"'; i++; }
+            else inQ=false;
+          }else cur+=c;
+        }else{
+          if(c==='\"') inQ=true;
+          else if(c===','){ out.push(cur); cur=""; }
+          else cur+=c;
+        }
+      }
+      out.push(cur); return out;
+    };
+    const header = parseLine(lines[0]);
+    const rows=[];
+    for(let i=1;i<lines.length;i++){
+      const cols = parseLine(lines[i]);
+      const obj={};
+      header.forEach((h,idx)=> obj[h]=(cols[idx]??""));
+      rows.push({
+        ts: obj.ts || "",
+        session_id: obj.session_id || "",
+        user_label: obj.user_label || obj.pid || "",
+        scenario_id: obj.scenario_id || "",
+        event_type: obj.event_type || "",
+        page: obj.page || "",
+        target: obj.target || "",
+        meta: safeJson(obj.meta_json || "{}") || {}
+      });
+    }
+    return rows;
+  }
+
+  function aggregate(events){
+    const sessions = new Map();
+    const surveysFlat = [];
+
+    for (const e0 of events){
+      const e = Object.assign({}, e0);
+      e.meta = normMeta(e.meta);
+
+      const sid = e.session_id || "no_session";
+      const user = e.user_label || e.meta.pid || "anon";
+
+      if (!sessions.has(sid)){
+        sessions.set(sid, { sid, user, decisions:new Map(), surveys:[], firstTs:e.ts, lastTs:e.ts });
+      }
+      const s = sessions.get(sid);
+      if (parseIso(e.ts) < parseIso(s.firstTs)) s.firstTs = e.ts;
+      if (parseIso(e.ts) > parseIso(s.lastTs))  s.lastTs  = e.ts;
+
+      if (e.event_type === "decision" && e.target === "quiz_answer"){
+        const q = Number(e.meta.q);
+        if (!Number.isFinite(q)) continue;
+        const choice = e.meta.choice;
+        const correct = e.meta.correct;
+        const isCorrect = (typeof e.meta.isCorrect === "boolean") ? e.meta.isCorrect : (choice && correct ? (choice === correct) : null);
+        s.decisions.set(q, { q, choice, correct, isCorrect, at: e.ts });
+      }
+
+      if (e.event_type === "survey"){
+        const pid = e.meta.pid || user;
+        const entry = { ts:e.ts, sid, pid, q1:e.meta.q1, q2:e.meta.q2, q3:e.meta.q3, q4:e.meta.q4,
+          helpful:e.meta.helpful||[], free:e.meta.free||"" };
+        s.surveys.push(entry);
+        surveysFlat.push(entry);
+      }
+    }
+
+    const byUser = new Map();
+    for (const s of sessions.values()){
+      const u = s.user;
+      const prev = byUser.get(u);
+      if (!prev || parseIso(s.lastTs) > parseIso(prev.lastTs)) byUser.set(u, s);
+    }
+
+    return { byUser, surveysFlat };
+  }
+
+  function qTitle(q){
+    try{
+      if (window.Delivery10 && Delivery10.getQ){
+        const info = Delivery10.getQ(q);
+        return info && info.title ? info.title : `第${q}問`;
+      }
+    }catch(e){}
+    return `第${q}問`;
+  }
+
+  function render(data){
+    const { byUser, surveysFlat } = data;
+    const search = (document.getElementById("qSearch").value || "").trim().toLowerCase();
+    document.getElementById("statChip").textContent = `${byUser.size}人`;
+
+    // byUser table
+    const rows = [];
+    for (const [u, s] of Array.from(byUser.entries()).sort((a,b)=> a[0].localeCompare(b[0]))){
+      if (search && !u.toLowerCase().includes(search)) continue;
+
+      let correct=0, answered=0;
+      const wrongs=[];
+      for (let q=1;q<=10;q++){
+        const d = s.decisions.get(q);
+        if(!d) continue;
+        answered++;
+        if(d.isCorrect) correct++; else wrongs.push(q);
+      }
+      const scoreTag = (answered===0) ? `<span class=\"tag warn\">未回答</span>`
+        : `<span class=\"tag ${correct===answered ? "good":"bad"}\">${correct}/${answered} 正解</span>`;
+      const wrongText = wrongs.length ? wrongs.map(q=>`第${q}問`).join(", ") : (answered? "なし":"-");
+
+      const latestSurvey = (s.surveys||[]).slice().sort((a,b)=> parseIso(b.ts)-parseIso(a.ts))[0];
+      const surveyText = latestSurvey ? `Q1:${latestSurvey.q1} Q2:${latestSurvey.q2} Q3:${latestSurvey.q3} Q4:${latestSurvey.q4}` : "未回答";
+
+      rows.push(`<tr>
+        <td><b>${u}</b><div class=\"small mono\">${s.sid}</div></td>
+        <td>${scoreTag}<div class=\"small\">誤答：${wrongText}</div></td>
+        <td><span class=\"small\">${surveyText}</span></td>
+      </tr>`);
+    }
+    document.getElementById("byUser").innerHTML = rows.length
+      ? `<table><thead><tr><th>参加者</th><th>結果</th><th>アンケ（最新）</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
+      : `<p class=\"muted\">表示するデータがありません。</p>`;
+
+    // survey list
+    const srows = surveysFlat.slice().sort((a,b)=> parseIso(b.ts)-parseIso(a.ts))
+      .filter(x=> !search || (x.pid||"").toLowerCase().includes(search))
+      .map(x=>{
+        const helpful = (x.helpful && x.helpful.length) ? x.helpful.join(", ") : "-";
+        const free = (x.free||"").trim();
+        return `<tr>
+          <td><b>${x.pid||"anon"}</b><div class=\"small\">${x.ts}</div></td>
+          <td class=\"mono\">Q1:${x.q1} Q2:${x.q2} Q3:${x.q3} Q4:${x.q4}</td>
+          <td><div class=\"small\">参考：${helpful}</div><div class=\"small\">${free.slice(0,120)}</div></td>
+        </tr>`;
+      });
+    document.getElementById("surveyList").innerHTML = srows.length
+      ? `<table><thead><tr><th>参加者</th><th>回答</th><th>メモ</th></tr></thead><tbody>${srows.join("")}</tbody></table>`
+      : `<p class=\"muted\">アンケート回答がありません。</p>`;
+
+    // details
+    const det = [];
+    for (const [u, s] of Array.from(byUser.entries()).sort((a,b)=> a[0].localeCompare(b[0]))){
+      if (search && !u.toLowerCase().includes(search)) continue;
+
+      const items=[];
+      for (let q=1;q<=10;q++){
+        const d = s.decisions.get(q);
+        if(!d){
+          items.push(`<tr><td>第${q}問</td><td><b>${qTitle(q)}</b></td><td class=\"muted\">未回答</td></tr>`);
+          continue;
+        }
+        const mark = (d.isCorrect===true) ? "⭕️" : (d.isCorrect===false ? "❌" : "—");
+        const extra = (d.choice && d.correct) ? `選択:${d.choice} / 正解:${d.correct}` : "";
+        items.push(`<tr><td>第${q}問</td><td><b>${qTitle(q)}</b></td><td>${mark} <span class=\"small mono\">${extra}</span></td></tr>`);
+      }
+      det.push(`<details><summary>${u}（${s.sid}）</summary><div class=\"hr\"></div>
+        <table><thead><tr><th style=\"width:84px\">番号</th><th>内容</th><th>正誤</th></tr></thead><tbody>${items.join("")}</tbody></table>
+      </details>`);
+    }
+    document.getElementById("details").innerHTML = det.length ? det.join('<div style="height:10px"></div>') : `<p class=\"muted\">詳細はありません。</p>`;
+  }
+
+  let current = null;
+  function updateFromEvents(ev){
+    current = aggregate(ev);
+    render(current);
+  }
+
+  document.getElementById("btnReload").addEventListener("click", ()=> updateFromEvents(loadLocalEvents()));
+  document.getElementById("qSearch").addEventListener("input", ()=> { if(current) render(current); });
+  document.getElementById("btnClearView").addEventListener("click", ()=>{
+    document.getElementById("qSearch").value = "";
+    if(current) render(current);
+  });
+
+  document.getElementById("csvFile").addEventListener("change", async (e)=>{
+    const f = e.target.files && e.target.files[0];
+    if(!f) return;
+    const text = await f.text();
+    const ev = parseCSV(text);
+    updateFromEvents(ev);
+  });
+
+  updateFromEvents(loadLocalEvents());
+})();
+</script>
+</body>
+</html>
