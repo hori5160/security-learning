@@ -73,7 +73,7 @@
 
     /* 「次の問題へ」：なじみやすいロイヤルブルー */
 .btn-primary {
-  background-color: #3b82f6; /* 鮮やかすぎず、沈みすぎない青 */
+  background-color: #629af6; /* 鮮やかすぎず、沈みすぎない青 */
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
 }
@@ -249,8 +249,8 @@ if (!q) {
 
     if (nextBtn) {
       if (!nextQ) {
-        nextBtn.href = `../common/survey_delivery.html`;
-        nextBtn.textContent = "アンケートへ";
+        nextBtn.href = `../common/result_delivery.html`;
+        nextBtn.textContent = "結果画面へ";
       } else {
         nextBtn.href = `../${folderName(nextQ)}/quiz_delivery.html?q=${nextQ}`;
         nextBtn.textContent = "次の問題へ";
