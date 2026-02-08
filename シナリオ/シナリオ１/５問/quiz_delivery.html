@@ -266,13 +266,13 @@
     
     .btn-safe { 
       background-color: #e0f2fe; 
-      color: #0284c7; 
-      border: 2px solid #bae6fd; 
+      color: #0372a9; 
+      border: 2px solid #8cd3f9; 
     }
     .btn-phish { 
       background-color: #fee2e2; 
       color: #dc2626; 
-      border: 2px solid #fecaca; 
+      border: 2px solid #f99b9b; 
     }
   /* ===== 公式情報ボタン（右上） ===== */
 .official-btn{
@@ -474,7 +474,7 @@
 
       <div class="choice-area">
         <button class="btn-quiz btn-safe" onclick="choose('safe')">
-          <span>✅ 正規のメッセージ</span>
+          <span>⭕️ 正規のメッセージ</span>
           <span style="font-size:0.85rem; font-weight:normal; opacity:0.8; margin-top:4px;">(安全なので開く)</span>
         </button>
         
@@ -684,7 +684,7 @@ window.choose = choose;
 
   function buildOfficialHtml(q) {
     // ★Q1（宅配／詐欺）：ユーザー指定の公式情報
-    if (Number(q) === 1) {
+    if (Number(q) === 5) {
       return `
         <div class="official-kv">
           <div class="official-line"><span class="k">公式ドメイン</span><span class="v">〇〇cardjp.co</span></div>
