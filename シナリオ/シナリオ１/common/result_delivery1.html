@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>結果</title>
+  <link rel="stylesheet" href="../../../assets/app.css" />
+  <script src="../../../assets/logger.js"></script>
+  <script src="../common/scenario_core.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>結果</h1>
+      <p class="small" id="who"></p>
+      <p id="sum"></p>
+
+      <div id="detail"></div>
+
+      <div style="margin-top:16px; display:flex; gap:12px; flex-wrap:wrap;">
+        <a class="btn btn-primary" href="#" id="retryBtn">もう一度（新しい順で）</a>
+        <a class="btn btn-good" href="#" id="csvBtn">📊 ログをCSVで保存</a>
+        <a class="btn btn-ghost" href="./survey_delivery.html">アンケート（1分）</a>
+        <a class="btn btn-ghost" href="../../../index.html">ホーム</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const TOTAL = 10;
+
+// 参加者ID表示（匿名ラベル）
+try {
+  const u = localStorage.getItem("sec_learn_user_label") || "(未設定)";
+  const sid = localStorage.getItem("sec_learn_session_id") || "(未設定)";
+  const who = document.getElementById("who");
+  if (who) who.textContent = `あなたのID：${u}（session: ${sid}）`;
+
+  // 結果ページ閲覧もログに残す（label未設定ならここで入力が出ます）
+  if (window.SecLogger && typeof SecLogger.log === "function") {
+    SecLogger.log("page_view", "result_delivery", { runId: (QuizFlow.ensureOrder(10, { adaptive: true }).runId || "no_run") });
+  }
+} catch(e) {}
+
+    // 集計
+    const s = (window.QuizState ? QuizState.summary(TOTAL) : { total:TOTAL, correct:0, wrong:TOTAL, state:{answers:{}}});
+    document.getElementById("sum").textContent =
+      `全${s.total}問中：正解 ${s.correct}問／不正解 ${s.wrong}問`;
+
+    // 詳細（1〜10で表示）
+    const d = document.getElementById("detail");
+    let html = "<h3>各問題の結果</h3><ul>";
+    for (let i=1; i<=TOTAL; i++){
+      const a = s.state.answers[String(i)];
+      html += `<li>第${i}問：${a ? (a.isCorrect ? "⭕️" : "❌") : "未回答"}</li>`;
+    }
+    html += "</ul>";
+    d.innerHTML = html;
+
+// CSV保存（友達に送ってもらう用）
+const csvBtn = document.getElementById("csvBtn");
+if (csvBtn) {
+  csvBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    try {
+      if (window.SecLogger && typeof SecLogger.exportCSV === "function") {
+        SecLogger.exportCSV();
+      } else {
+        alert("ログ保存ができません（logger.js が読み込めていないかも）");
+      }
+    } catch (err) {
+      alert("ログ保存でエラーが起きました。");
+    }
+  });
+}
+
+    // もう一度：状態クリア→誤答優先+ランダム→最初の問題へ
+    document.getElementById("retryBtn").addEventListener("click", (e) => {
+      e.preventDefault();
+      try { QuizState.clear(); } catch(e){}
+      try { QuizFlow.startNewRun(TOTAL, { adaptive: true }); } catch(e){}
+      const first = (QuizFlow.getOrder()[0] || 1);
+      location.href = `../${folderName(first)}/quiz_delivery.html?q=${first}`;
+    });
+  </script>
+</body>
+</html>
