@@ -192,6 +192,34 @@
       font-size: 0.85rem;
     }
 
+    /* ヘッダー左上：学び方ボタン */
+    .header-btn {
+      position: absolute;
+      left: 30px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: inline-block;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: var(--btn-admin-bg);
+      color: var(--btn-admin-text);
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 0.9rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      transition: background 0.2s, transform 0.1s;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .header-btn:hover {
+      background: var(--btn-admin-hover);
+    }
+
+    .header-btn:active {
+      transform: translateY(-50%) scale(0.98);
+    }
+
   </style>
 </head>
 
@@ -204,6 +232,9 @@
       <span id="logCount">0</span>件
     </div>-->
   </div>
+
+  <!-- 左上：学び方（やり方・進め方の説明ページへ） -->
+  <a class="header-btn" href="howto.html" title="やり方・学び方">学び方</a>
 
   <a href="admin.html" title="管理画面" 
      style="position: absolute; right: 30px; top: 50%; transform: translateY(-50%); 
