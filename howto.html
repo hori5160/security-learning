@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>やり方・学び方（進め方ガイド）</title>
+
+  <!-- 既存のログ仕組み（入っていればpage_viewを記録） -->
+  <script src="./assets/logger.js"></script>
+
+  <style>
+    :root{
+      --main-bg:#e5f0fc;
+      --card-bg:#ffffff;
+      --text-main:#424b54;
+      --text-sub:#555;
+
+      --primary:#4f7dd2;
+      --primary-hover:#423ab5;
+
+      --ghost:#dfe6e9;
+      --ghost-hover:#b2bec3;
+      --ghost-text:#2d3436;
+
+      --line: rgba(0,0,0,0.08);
+    }
+
+    body{
+      font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+      background: var(--main-bg);
+      margin: 0;
+      padding: 0;
+      color: var(--text-main);
+      min-height: 100vh;
+      display:flex;
+      flex-direction:column;
+    }
+
+    header{
+      background: rgba(255,255,255,0.9);
+      padding: 18px 20px;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    header h1{ margin:0; font-size:1.55rem; }
+    header p{ margin:6px 0 0; font-size:0.9rem; color: var(--text-sub); }
+
+    .container{
+      flex: 1;
+      width: 90%;
+      max-width: 900px;
+      margin: 26px auto 40px;
+    }
+
+    .card{
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 22px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+      border: 1px solid var(--line);
+      margin-bottom: 18px;
+    }
+
+    .card h2{
+      margin: 0 0 10px 0;
+      font-size: 1.15rem;
+      border-bottom: 2px solid #f1f2f6;
+      padding-bottom: 10px;
+    }
+
+    .lead{
+      margin: 0;
+      color: var(--text-sub);
+      line-height: 1.65;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-top: 14px;
+    }
+    @media (min-width: 820px){
+      .grid{ grid-template-columns: 1fr 1fr; }
+    }
+
+    .step{
+      display:flex;
+      gap: 12px;
+      align-items:flex-start;
+      padding: 12px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.65);
+    }
+    .step .num{
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(117,211,234,0.25);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight: 900;
+      color: #000000;
+      flex: 0 0 auto;
+    }
+    .step b{ display:block; margin-bottom: 4px; }
+    .step p{ margin: 0; color: var(--text-sub); line-height: 1.6; }
+
+    .tips{
+      margin: 12px 0 0;
+      padding-left: 1.2em;
+      color: var(--text-sub);
+      line-height: 1.7;
+    }
+
+    .notice{
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(248, 146, 52, 0.12);
+      border: 1px solid rgba(113, 72, 1, 0.25);
+      color: #020100;
+    }
+
+    .btnRow{
+      display:flex;
+      flex-wrap:wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap: 8px;
+      text-decoration:none;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-weight: 800;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      flex: 1;
+      min-width: 180px;
+    }
+    .btn:active{ transform: scale(0.98); }
+
+    .btn-primary{
+      background: var(--primary);
+      color: #fff;
+    }
+    .btn-primary:hover{ background: var(--primary-hover); }
+
+    .btn-ghost{
+      background: var(--ghost);
+      color: var(--ghost-text);
+    }
+    .btn-ghost:hover{ background: var(--ghost-hover); }
+
+    code.kbd{
+      background:#eef2f7;
+      border:1px solid #d7dde6;
+      padding: 2px 8px;
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.9em;
+    }
+
+
+    .officialInfoRow{
+      display:flex;
+      gap:14px;
+      align-items:center;
+      margin-top: 14px;
+      flex-wrap:wrap;
+    }
+    .officialInfoImg{
+      width: 220px;
+      max-width: 70vw;
+      height:auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      background:#fff;
+      padding: 10px;
+    }
+    .officialInfoText{ flex: 1; min-width: 220px; }
+
+
+    footer{
+      text-align:center;
+      padding: 18px;
+      color:#666;
+      font-size:0.85rem;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>学び方</h1>
+    <p>この学習サイトの使い方を解説します。</p>
+  </header>
+
+  <div class="container">
+
+    <div class="card">
+      <h2>この学習でやること</h2>
+      <p class="lead">
+        「SMS・メールなどの連絡」を見たときに、<b>正規か詐欺（フィッシング）か</b>を判断し、
+        その直後に<b>疑似体験</b>と<b>解説（振り返り）</b>で見分け方を学びます。
+      </p>
+
+      <div class="notice">
+        ※ 実際に危険な操作は行いません（全部“疑似”です）。<br>
+        ※ 本名・電話番号・カード番号など、<b>実在の個人情報は入力しない</b>でください。
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>基本の流れ</h2>
+
+      <div class="grid">
+        <div class="step">
+          <div class="num">1</div>
+          <div>
+            <b>ホームでシナリオを選ぶ</b>
+            <p>ホーム画面の「開始する」からスタートします。（例：スミッシング10問）</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">2</div>
+          <div>
+            <b>二択で判断する（正規／詐欺）</b>
+            <p>受信画面や本文を見て、どちらかを選びます。迷ってOKです。</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">3</div>
+          <div>
+            <b>疑似体験 → 解説（振り返り）</b>
+            <p>
+              不正解のときは、実際の手口を“疑似体験”してから、見分け方を確認します。<br>
+              正解のときも、疑似体験に進むことが可能。
+            </p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">4</div>
+          <div>
+            <b>「次の問題へ」で進む</b>
+            <p>解説ページ上部の <code class="kbd">次の問題へ</code> で次に進みます。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>アンケートについて（研究用）</h2>
+      <p class="lead">
+        <b>匿名でいいのでGoogleアンケートに答えてください！</b><br>
+      </p>
+
+    </div>
+    <div class="card">
+      <h2>「公式情報」ボタンで確認する</h2>
+      <p class="lead">
+        画面右上などに表示される <b>「公式情報」</b> を押すと、各シナリオに関する<b>公式の案内</b>を確認できます。<br>
+      </p>
+
+      <div class="officialInfoRow">
+        <img class="officialInfoImg" src="data:image/png;base64,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" alt="公式情報ボタンの例" />
+        <div class="officialInfoText">
+          <ul class="tips" style="margin-top:0;">
+            <li>「URLのドメイン確認」「公式アプリへの誘導」「支払い方法」など、判断のポイントが書かれています。</li>
+            <li>迷ったら、まずここを見て落ち着いて確認するのがコツです。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+
+
+    <div class="card">
+      <h2>困ったとき</h2>
+      <ul class="tips">
+        <li>画面が崩れる／ボタンが効かない：まず <code class="kbd">再読み込み</code> を試してください。</li>
+      </ul>
+    </div>
+
+     <div class="btnRow">
+        <a class="btn btn-primary" href="./index.html">ホームへ戻る</a>
+      </div>
+
+  </div>
+
+  <footer>
+    © 2026 Security Learning Project
+  </footer>
+
+  <script>
+    // このページの閲覧ログ（入っていれば）
+    try {
+      if (window.SecLogger && typeof SecLogger.log === "function") {
+        SecLogger.log("page_view", "howto", { title: document.title });
+      }
+    } catch (e) {}
+  </script>
+</body>
+</html>
